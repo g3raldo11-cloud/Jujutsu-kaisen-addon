@@ -140,6 +140,7 @@ export async function eventRoutes(app: FastifyInstance, ctx: AppContext, g: Guar
       .update(events)
       .set({
         ...input,
+        title: input.title ?? e.title,
         startsAt: input.startsAt ? new Date(input.startsAt) : undefined,
         endsAt: input.endsAt === undefined ? undefined : input.endsAt ? new Date(input.endsAt) : null,
         recurrenceUntil: input.recurrenceUntil === undefined ? undefined : input.recurrenceUntil ? new Date(input.recurrenceUntil) : null,

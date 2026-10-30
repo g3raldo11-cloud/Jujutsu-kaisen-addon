@@ -7,6 +7,7 @@ import { runBotScript, normalizeActions } from './sandbox';
 import { BUILTIN_DEFS, builtinHandler, onEventCreated, onMemberApproved, postModerate, preModerate, type CommandContext } from './builtin';
 import { botCanUse, botReact, botSay, cfg, commandsOf, invalidateBots, loadBots, parseArgs, renderTemplate, saveBotStorage, setBotError, type BotRow } from './runtime';
 import { advance, getMusic } from './music';
+import { onSocket } from '../realtime/socket';
 
 /** Creates the built-in bots (and their bot user accounts) if missing. Idempotent. */
 export async function ensureBuiltinBots(ctx: AppContext) {
@@ -197,7 +198,7 @@ export async function registerBots(ctx: AppContext) {
   });
 
   // Music: clients report the end of a track; the first report advances the shared queue.
-  ctx.realtime.io?.on('connection', (socket) => {
+  onSocket((socket) => {
     socket.on('music:ended', async (p: { channelId?: string; fileId?: string }) => {
       if (typeof p?.channelId !== 'string' || !socket.rooms.has(`voice:${p.channelId}`)) return;
       const s = await getMusic(ctx, p.channelId);

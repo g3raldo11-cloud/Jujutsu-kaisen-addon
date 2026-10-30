@@ -168,6 +168,7 @@ export async function forumRoutes(app: FastifyInstance, ctx: AppContext, g: Guar
         editedAt: input.title || input.content ? new Date() : undefined,
         pinnedAt: input.pinned === undefined ? undefined : input.pinned ? new Date() : null,
         lockedAt: input.locked === undefined ? undefined : input.locked ? new Date() : null,
+        lastActivityAt: p.lastActivityAt,
       })
       .where(eq(forumPosts.id, p.id))
       .returning();

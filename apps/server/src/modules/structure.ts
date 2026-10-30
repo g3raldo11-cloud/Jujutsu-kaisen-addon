@@ -7,7 +7,7 @@ import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';
 import { hashPassword, verifyPassword } from '../lib/crypto';
 import { AppError, badRequest, forbidden, notFound, tooMany } from '../lib/errors';
-import { body, uuidParam } from '../lib/http';
+import { body, defined, hasKeys, uuidParam } from '../lib/http';
 import type { UserAuthz } from '../lib/permissions';
 import { categories, channelMembers, channelOverwrites, channels, channelUserStates, spaces, voiceRooms } from '../db/schema';
 
@@ -109,7 +109,8 @@ export async function structureRoutes(app: FastifyInstance, ctx: AppContext, g: 
   app.patch('/api/spaces/:id', manage, async (req) => {
     const id = uuidParam(req, 'id');
     const input = body(req, spaceSchema.partial().extend({ position: z.number().int().min(0).max(1000).optional() }));
-    const [s] = await ctx.db.update(spaces).set(input).where(eq(spaces.id, id)).returning();
+    const sp = defined(input);
+    const [s] = hasKeys(sp) ? await ctx.db.update(spaces).set(sp).where(eq(spaces.id, id)).returning() : await ctx.db.select().from(spaces).where(eq(spaces.id, id));
     if (!s) throw notFound();
     await audit(ctx, { actorId: req.authz!.id, action: 'space.update', targetType: 'space', targetId: id, ip: req.ip, metadata: input });
     await changed();
@@ -143,7 +144,8 @@ export async function structureRoutes(app: FastifyInstance, ctx: AppContext, g: 
   app.patch('/api/categories/:id', manage, async (req) => {
     const id = uuidParam(req, 'id');
     const input = body(req, z.object({ name: z.string().trim().min(1).max(60).optional(), position: z.number().int().min(0).max(1000).optional() }));
-    const [c] = await ctx.db.update(categories).set(input).where(eq(categories.id, id)).returning();
+    const cp = defined(input);
+    const [c] = hasKeys(cp) ? await ctx.db.update(categories).set(cp).where(eq(categories.id, id)).returning() : await ctx.db.select().from(categories).where(eq(categories.id, id));
     if (!c) throw notFound();
     await changed();
     return c;
@@ -231,7 +233,10 @@ export async function structureRoutes(app: FastifyInstance, ctx: AppContext, g: 
     const { password, memberIds, overwrites, ...rest } = input;
     const patch: Partial<ChannelRow> = { ...rest };
     if (password !== undefined) patch.passwordHash = password ? await hashPassword(password) : null;
-    const [c] = await ctx.db.update(channels).set(patch).where(eq(channels.id, id)).returning();
+    const clean = defined(patch as Record<string, unknown>) as Partial<ChannelRow>;
+    const [c] = hasKeys(clean)
+      ? await ctx.db.update(channels).set(clean).where(eq(channels.id, id)).returning()
+      : await ctx.db.select().from(channels).where(eq(channels.id, id));
     if (!c) throw notFound();
     if (memberIds) {
       const before = await ctx.db.select().from(channelMembers).where(eq(channelMembers.channelId, id));

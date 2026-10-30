@@ -7,7 +7,7 @@ import type { Guards } from '../lib/auth';
 import { revokeUserSessions } from '../lib/auth';
 import { audit } from '../lib/audit';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
-import { body, query, uuidParam } from '../lib/http';
+import { body, defined, hasKeys, query, uuidParam } from '../lib/http';
 import { mailTemplate } from '../lib/mailer';
 import { notify } from '../lib/notify';
 import { getPublicUsers } from '../lib/users';
@@ -309,10 +309,8 @@ export async function adminRoutes(app: FastifyInstance, ctx: AppContext, g: Guar
     if (!actor.isOwner && role.position >= actor.topPosition) throw forbidden('Você não pode editar este cargo');
     if (!actor.isOwner && input.position !== undefined && input.position >= actor.topPosition) throw forbidden('Posição acima da sua');
     if (input.permissions) checkGrantable(actor, input.permissions);
-    await ctx.db
-      .update(roles)
-      .set({ name: input.name, color: input.color, hoist: input.hoist, position: role.isDefault ? 0 : input.position })
-      .where(eq(roles.id, id));
+    const rp = defined({ name: input.name, color: input.color, hoist: input.hoist, position: role.isDefault ? undefined : input.position });
+    if (hasKeys(rp)) await ctx.db.update(roles).set(rp).where(eq(roles.id, id));
     if (input.permissions) {
       await ctx.db.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
       if (input.permissions.length) await ctx.db.insert(rolePermissions).values(input.permissions.map((permission) => ({ roleId: id, permission })));

@@ -7,7 +7,7 @@ import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';
 import { randomToken, safeEqual, sha256 } from '../lib/crypto';
 import { badRequest, forbidden, notFound, unauthorized } from '../lib/errors';
-import { body, uuidParam } from '../lib/http';
+import { body, defined, hasKeys, uuidParam } from '../lib/http';
 import { botCommands, botPermissions, bots, files, userProfiles, users } from '../db/schema';
 import { botAuthorizedChannels, botSay, invalidateBots, loadBots } from '../bots/runtime';
 import { normalizeActions, runBotScript, SANDBOX_LIMITS } from '../bots/sandbox';
@@ -138,22 +138,16 @@ export async function botRoutes(app: FastifyInstance, ctx: AppContext, g: Guards
       const [f] = await ctx.db.select().from(files).where(eq(files.id, input.avatarFileId));
       if (!f || f.category !== 'image' || f.purpose !== 'avatar') throw badRequest('Avatar inválido');
     }
-    await ctx.db
-      .update(bots)
-      .set({
-        enabled: input.enabled,
-        description: input.description,
-        config: input.config ? { ...(b.config as object), ...input.config } : undefined,
-        script: input.script === undefined ? undefined : input.script,
-        lastError: input.script !== undefined ? null : undefined,
-      })
-      .where(eq(bots.id, id));
-    if (input.displayName || input.avatarFileId !== undefined || input.color || input.description !== undefined) {
-      await ctx.db
-        .update(userProfiles)
-        .set({ displayName: input.displayName, avatarFileId: input.avatarFileId, profileColor: input.color, bio: input.description })
-        .where(eq(userProfiles.userId, b.userId));
-    }
+    const botPatch = defined({
+      enabled: input.enabled,
+      description: input.description,
+      config: input.config ? { ...(b.config as object), ...input.config } : undefined,
+      script: input.script,
+      lastError: input.script !== undefined ? null : undefined,
+    });
+    if (hasKeys(botPatch)) await ctx.db.update(bots).set(botPatch).where(eq(bots.id, id));
+    const profilePatch = defined({ displayName: input.displayName, avatarFileId: input.avatarFileId, profileColor: input.color, bio: input.description });
+    if (hasKeys(profilePatch)) await ctx.db.update(userProfiles).set(profilePatch).where(eq(userProfiles.userId, b.userId));
     if (input.channelIds) {
       await ctx.db.delete(botPermissions).where(eq(botPermissions.botId, id));
       if (input.channelIds.length) await ctx.db.insert(botPermissions).values(input.channelIds.map((channelId) => ({ botId: id, channelId })));

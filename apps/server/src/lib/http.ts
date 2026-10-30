@@ -39,3 +39,9 @@ export const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID
 export function json<T>(value: T): T {
   return JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 }
+
+/** Drops undefined keys; drizzle refuses an UPDATE with nothing to set. */
+export function defined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+export const hasKeys = (obj: object) => Object.keys(obj).length > 0;

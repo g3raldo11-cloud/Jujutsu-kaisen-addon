@@ -21,6 +21,10 @@ function parseCookies(header: string | undefined) {
 
 export type AppSocket = Socket & { data: { userId: string; sessionId: string } };
 
+/** Other modules (bots) can attach per-socket handlers; they run synchronously on connection. */
+const extraHandlers: ((socket: Socket) => void)[] = [];
+export const onSocket = (fn: (socket: Socket) => void) => extraHandlers.push(fn);
+
 export async function setupRealtime(app: FastifyInstance, ctx: AppContext) {
   const io = new Server(app.server, {
     path: '/socket.io',
@@ -88,18 +92,7 @@ export async function setupRealtime(app: FastifyInstance, ctx: AppContext) {
   io.on('connection', async (raw) => {
     const socket = raw as AppSocket;
     const userId = socket.data.userId;
-    socket.join([`user:${userId}`, `session:${socket.data.sessionId}`, 'members']);
-    await syncRooms(socket);
-
-    const first = await markOnline(ctx, userId);
-    await ctx.db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, userId));
-    const [p] = await ctx.db.select({ presence: userProfiles.presence }).from(userProfiles).where(eq(userProfiles.userId, userId));
-    await ctx.redis.hset('presence:mode', userId, p?.presence ?? 'online');
-    if (first) {
-      const mode = (await presenceOf(ctx, [userId]))[userId];
-      if (mode !== 'offline') ctx.realtime.toMembers('presence:update', { userId, presence: mode });
-    }
-
+    // Handlers are attached synchronously so events sent right after "connect" are never lost.
     const typingThrottle = new Map<string, number>();
     socket.on('typing', async (payload: { channelId?: string; threadId?: string | null }) => {
       if (typeof payload?.channelId !== 'string') return;
@@ -124,15 +117,28 @@ export async function setupRealtime(app: FastifyInstance, ctx: AppContext) {
 
     registerVoiceHandlers(ctx, io, socket);
     registerWhiteboardHandlers(ctx, socket);
+    for (const fn of extraHandlers) fn(socket);
 
     socket.on('disconnect', async () => {
-      await leaveAllVoice(ctx, io, socket);
-      const last = await markOffline(ctx, userId);
+      await leaveAllVoice(ctx, io, socket).catch(() => {});
+      const last = await markOffline(ctx, userId).catch(() => false);
       if (last) {
-        await ctx.db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, userId));
+        await ctx.db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, userId)).catch(() => {});
         ctx.realtime.toMembers('presence:update', { userId, presence: 'offline' });
       }
     });
+
+    socket.join([`user:${userId}`, `session:${socket.data.sessionId}`, 'members']);
+    await syncRooms(socket);
+    const first = await markOnline(ctx, userId);
+    await ctx.db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, userId));
+    const [p] = await ctx.db.select({ presence: userProfiles.presence }).from(userProfiles).where(eq(userProfiles.userId, userId));
+    await ctx.redis.hset('presence:mode', userId, p?.presence ?? 'online');
+    if (first) {
+      const mode = (await presenceOf(ctx, [userId]))[userId];
+      if (mode !== 'offline') ctx.realtime.toMembers('presence:update', { userId, presence: mode });
+    }
+    socket.emit('ready', { userId });
   });
 
   // Periodically re-validate sessions so revoked sessions, bans and suspensions take effect on live sockets.
