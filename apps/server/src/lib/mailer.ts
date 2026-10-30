@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from 'nodemailer';
+import { appendFileSync } from 'node:fs';
 import type { FastifyBaseLogger } from 'fastify';
 
 export interface MailMessage {
@@ -27,6 +28,8 @@ export function createMailer(opts: { smtpUrl?: string; from: string; log: Fastif
       if (!transport) {
         outbox.push(msg);
         if (outbox.length > 200) outbox.shift();
+        // Development/test aid: mirror captured e-mails to a JSONL file (never used when SMTP is configured).
+        if (process.env.MAIL_LOG_FILE && !opts.isProd) appendFileSync(process.env.MAIL_LOG_FILE, `${JSON.stringify({ ...msg, at: new Date().toISOString() })}\n`);
         opts.log.info({ to: msg.to, subject: msg.subject }, `[mail] ${msg.subject}\n${msg.text}`);
         return;
       }

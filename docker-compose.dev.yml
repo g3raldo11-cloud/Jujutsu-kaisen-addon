@@ -1,0 +1,24 @@
+# Local development dependencies: docker compose -f docker-compose.dev.yml up -d
+name: ouroboros-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: ouroboros, POSTGRES_PASSWORD: ouroboros, POSTGRES_DB: ouroboros }
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  # Catches every e-mail locally — open http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["1025:1025", "8025:8025"]
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment: { MINIO_ROOT_USER: ouroboros, MINIO_ROOT_PASSWORD: ouroboros-dev-secret }
+    ports: ["9000:9000", "9001:9001"]
+
+volumes:
+  pgdata:

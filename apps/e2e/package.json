@@ -1,0 +1,15 @@
+{
+  "name": "@ouroboros/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "pnpm --filter @ouroboros/web build && pnpm --filter @ouroboros/server build && playwright test",
+    "test:only": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "pg": "^8.14.0",
+    "ioredis": "^5.6.0"
+  }
+}
