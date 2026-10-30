@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { categorySchema, CHANNEL_PERMISSIONS, channelOverwriteSchema, channelSchema, channelUpdateSchema, PERMISSIONS, spaceSchema, type Permission } from '@enclave/shared';
+import { categorySchema, CHANNEL_PERMISSIONS, channelOverwriteSchema, channelSchema, channelUpdateSchema, PERMISSIONS, spaceSchema, type Permission } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';

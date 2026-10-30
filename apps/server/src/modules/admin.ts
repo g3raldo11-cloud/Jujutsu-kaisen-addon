@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, ilike, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { OWNER_ONLY_GRANTS, PERMISSIONS, platformSettingsSchema, roleSchema, USER_STATUSES } from '@enclave/shared';
+import { OWNER_ONLY_GRANTS, PERMISSIONS, platformSettingsSchema, roleSchema, USER_STATUSES } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { revokeUserSessions } from '../lib/auth';

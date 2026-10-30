@@ -10,7 +10,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().default(4000),
   /** Public URL users open in the browser (used in e-mails and origin checks). */
   APP_URL: z.string().url().default('http://localhost:5173'),
-  DATABASE_URL: z.string().default('postgres://enclave:enclave@localhost:5432/enclave'),
+  DATABASE_URL: z.string().default('postgres://ouroboros:ouroboros@localhost:5432/ouroboros'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   /** 32+ byte secret used for HMAC (TURN credentials, encryption of secrets at rest). */
   APP_SECRET: z.string().min(32).default('dev-only-secret-change-me-dev-only-secret-change-me'),
@@ -19,13 +19,13 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
   SMTP_URL: z.string().optional(),
-  MAIL_FROM: z.string().default('Enclave <no-reply@enclave.local>'),
+  MAIL_FROM: z.string().default('Ouroboros <no-reply@ouroboros.local>'),
 
   STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('./storage'),
   S3_ENDPOINT: z.string().optional(),
   S3_REGION: z.string().default('us-east-1'),
-  S3_BUCKET: z.string().default('enclave'),
+  S3_BUCKET: z.string().default('ouroboros'),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_FORCE_PATH_STYLE: bool.default('true'),

@@ -11,7 +11,7 @@ import { Transform } from 'node:stream';
 import { fileTypeFromFile } from 'file-type';
 import { imageSize } from 'image-size';
 import { z } from 'zod';
-import { ALLOWED_MIME, categoryForMime, INLINE_SAFE_MIME, PERMISSIONS } from '@enclave/shared';
+import { ALLOWED_MIME, categoryForMime, INLINE_SAFE_MIME, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';
@@ -198,7 +198,7 @@ export async function fileRoutes(app: FastifyInstance, ctx: AppContext, g: Guard
         const purpose = fields.purpose ?? 'attachment';
         const limit = purposeLimit(purpose);
         originalName = (part.filename || 'arquivo').replace(/[\\/\0\r\n]/g, '_').slice(0, 200);
-        tmpPath = path.join(os.tmpdir(), `enclave-upload-${randomUUID()}`);
+        tmpPath = path.join(os.tmpdir(), `ouroboros-upload-${randomUUID()}`);
         const hash = createHash('sha256');
         const counter = new Transform({
           transform(chunk, _enc, cb) {

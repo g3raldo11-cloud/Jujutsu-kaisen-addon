@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Socket } from 'socket.io';
 import { z } from 'zod';
-import { PERMISSIONS, type Permission } from '@enclave/shared';
+import { PERMISSIONS, type Permission } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { whiteboardStrokes } from '../db/schema';
 

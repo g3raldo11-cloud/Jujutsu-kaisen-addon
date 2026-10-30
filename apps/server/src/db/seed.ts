@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { DEFAULT_MEMBER_PERMISSIONS, PERMISSION_LABELS, PERMISSIONS, type Permission } from '@enclave/shared';
+import { DEFAULT_MEMBER_PERMISSIONS, PERMISSION_LABELS, PERMISSIONS, type Permission } from '@ouroboros/shared';
 import type { DB } from './client';
 import { categories, channels, permissions, rolePermissions, roles, spaces, voiceRooms } from './schema';
 

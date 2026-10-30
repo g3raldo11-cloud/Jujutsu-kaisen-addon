@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { CHANNEL_TYPES, PERMISSIONS } from '@enclave/shared';
+import { CHANNEL_TYPES, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { botCommands, botPermissions, bots, channelMembers, channels, reactions, userProfiles, users } from '../db/schema';
 import { createMessage, createPoll, type HydratedMessage } from '../modules/messages';

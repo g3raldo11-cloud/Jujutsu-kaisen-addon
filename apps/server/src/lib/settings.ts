@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { DEFAULT_SETTINGS, platformSettingsSchema, type PlatformSettings } from '@enclave/shared';
+import { DEFAULT_SETTINGS, platformSettingsSchema, type PlatformSettings } from '@ouroboros/shared';
 import type { DB } from '../db/client';
 import { settings } from '../db/schema';
 

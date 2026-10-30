@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull } from 'drizzle-orm';
-import { CHANNEL_PERMISSIONS, PERMISSIONS, type Permission, type UserStatus } from '@enclave/shared';
+import { CHANNEL_PERMISSIONS, PERMISSIONS, type Permission, type UserStatus } from '@ouroboros/shared';
 import type { DB } from '../db/client';
 import { channelMembers, channelOverwrites, channels, rolePermissions, roles, userRoles, users } from '../db/schema';
 

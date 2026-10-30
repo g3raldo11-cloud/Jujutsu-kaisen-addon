@@ -1,14 +1,14 @@
 import { and, eq, gt, isNull, ne } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
-import { PERMISSIONS, type Permission } from '@enclave/shared';
+import { PERMISSIONS, type Permission } from '@ouroboros/shared';
 import type { AppContext } from './context';
 import { randomToken, sha256 } from './crypto';
 import { forbidden, unauthorized, AppError } from './errors';
 import type { UserAuthz } from './permissions';
 import { sessions, users } from '../db/schema';
 
-export const SESSION_COOKIE = 'enclave_session';
-export const CSRF_COOKIE = 'enclave_csrf';
+export const SESSION_COOKIE = 'ouroboros_session';
+export const CSRF_COOKIE = 'ouroboros_csrf';
 
 declare module 'fastify' {
   interface FastifyRequest {

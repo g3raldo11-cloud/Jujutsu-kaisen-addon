@@ -166,6 +166,7 @@ export const preferencesSchema = z.object({
       enabled: z.boolean(),
       volume: z.number().min(0).max(1),
       events: z.record(z.enum(SOUND_EVENTS), z.boolean()),
+      presets: z.record(z.enum(SOUND_EVENTS), z.enum(['sino', 'gota', 'pulso', 'acorde', 'grave'])),
     })
     .partial()
     .optional(),
@@ -250,7 +251,7 @@ export const platformSettingsSchema = z.object({
 export type PlatformSettings = z.infer<typeof platformSettingsSchema>;
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
-  communityName: 'Enclave',
+  communityName: 'Ouroboros',
   tagline: 'Uma comunidade privada, por convite e aprovação.',
   description:
     'Um espaço reservado para conversas, projetos e encontros. Cada novo membro é aprovado manualmente pela administração.',

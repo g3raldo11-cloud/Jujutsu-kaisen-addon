@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { forumCommentSchema, forumPostSchema, PERMISSIONS } from '@enclave/shared';
+import { forumCommentSchema, forumPostSchema, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';

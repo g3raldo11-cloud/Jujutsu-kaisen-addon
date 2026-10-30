@@ -5,7 +5,7 @@
  */
 import { createInterface } from 'node:readline/promises';
 import { sql } from 'drizzle-orm';
-import { emailSchema, passwordSchema, usernameSchema } from '@enclave/shared';
+import { emailSchema, passwordSchema, usernameSchema } from '@ouroboros/shared';
 import { loadConfig } from '../config';
 import { createDb, runMigrations } from '../db/client';
 import { seed } from '../db/seed';

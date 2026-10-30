@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { editMessageSchema, messageSchema, PERMISSIONS } from '@enclave/shared';
+import { editMessageSchema, messageSchema, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';

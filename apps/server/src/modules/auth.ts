@@ -11,7 +11,7 @@ import {
   registerSchema,
   resetPasswordSchema,
   tokenSchema,
-} from '@enclave/shared';
+} from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { accessState, createSession, CSRF_COOKIE, refreshSuspension, revokeUserSessions, SESSION_COOKIE } from '../lib/auth';

@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 
 /** Starts every test run from an empty database and Redis db. */
 export default async function setup() {
-  const url = process.env.TEST_DATABASE_URL ?? 'postgres://enclave:enclave@127.0.0.1:5432/enclave_test';
+  const url = process.env.TEST_DATABASE_URL ?? 'postgres://ouroboros:ouroboros@127.0.0.1:5432/ouroboros_test';
   const client = new pg.Client({ connectionString: url });
   await client.connect();
   await client.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;');

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm';
-import { PERMISSIONS, type BuiltinBotKey } from '@enclave/shared';
+import { PERMISSIONS, type BuiltinBotKey } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { audit } from '../lib/audit';
 import { notify } from '../lib/notify';

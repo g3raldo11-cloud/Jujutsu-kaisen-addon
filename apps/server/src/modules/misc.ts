@@ -2,7 +2,7 @@ import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm
 import type { FastifyInstance } from 'fastify';
 import os from 'node:os';
 import { z } from 'zod';
-import { PERMISSIONS } from '@enclave/shared';
+import { PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';

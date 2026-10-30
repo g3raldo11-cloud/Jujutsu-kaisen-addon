@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { eq } from 'drizzle-orm';
-import { PERMISSIONS } from '@enclave/shared';
+import { PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { accessState, refreshSuspension, resolveSession, SESSION_COOKIE } from '../lib/auth';
 import { markOffline, markOnline, presenceOf, resetPresence } from './presence';
@@ -38,7 +38,7 @@ export async function setupRealtime(app: FastifyInstance, ctx: AppContext) {
   const sub = ctx.redis.duplicate();
   io.adapter(createAdapter(pub, sub));
 
-  if (process.env.ENCLAVE_CLUSTER !== '1') await resetPresence(ctx);
+  if (process.env.OUROBOROS_CLUSTER !== '1') await resetPresence(ctx);
 
   io.use(async (socket, next) => {
     try {

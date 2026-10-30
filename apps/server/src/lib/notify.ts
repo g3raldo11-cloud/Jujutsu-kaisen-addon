@@ -1,5 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
-import type { NotificationType } from '@enclave/shared';
+import type { NotificationType } from '@ouroboros/shared';
 import type { AppContext } from './context';
 import { notifications, userProfiles, users } from '../db/schema';
 import { mailTemplate } from './mailer';

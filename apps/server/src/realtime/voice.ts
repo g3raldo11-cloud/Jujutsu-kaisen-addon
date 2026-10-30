@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Server, Socket } from 'socket.io';
-import { CALL_CHANNEL_TYPES, PERMISSIONS } from '@enclave/shared';
+import { CALL_CHANNEL_TYPES, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { hmac } from '../lib/crypto';
 import { notify } from '../lib/notify';

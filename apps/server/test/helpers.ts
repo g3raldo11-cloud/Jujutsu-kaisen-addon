@@ -29,9 +29,9 @@ export class Client {
   }
 
   async req(method: string, url: string, payload?: unknown, opts: { csrf?: boolean; headers?: Record<string, string> } = {}): Promise<Res> {
-    if (!this.cookies.enclave_csrf) this.store((await this.built.app.inject({ method: 'GET', url: '/api/auth/csrf' })).headers['set-cookie'] as string[]);
+    if (!this.cookies.ouroboros_csrf) this.store((await this.built.app.inject({ method: 'GET', url: '/api/auth/csrf' })).headers['set-cookie'] as string[]);
     const headers: Record<string, string> = { cookie: this.cookieHeader(), ...(opts.headers ?? {}) };
-    if (opts.csrf !== false && method !== 'GET') headers['x-csrf-token'] = this.cookies.enclave_csrf;
+    if (opts.csrf !== false && method !== 'GET') headers['x-csrf-token'] = this.cookies.ouroboros_csrf;
     const res = await this.built.app.inject({ method: method as never, url, payload: payload as never, headers });
     this.store(res.headers['set-cookie'] as string[]);
     let body: any = res.body;

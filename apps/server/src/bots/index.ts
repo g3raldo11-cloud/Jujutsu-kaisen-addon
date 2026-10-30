@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { BUILTIN_BOTS, PERMISSIONS } from '@enclave/shared';
+import { BUILTIN_BOTS, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import { botCommands, bots, channels, userProfiles, users } from '../db/schema';
 import type { HydratedMessage } from '../modules/messages';

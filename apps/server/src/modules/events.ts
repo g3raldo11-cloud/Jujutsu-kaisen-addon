@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { eventSchema, PERMISSIONS } from '@enclave/shared';
+import { eventSchema, PERMISSIONS } from '@ouroboros/shared';
 import type { AppContext } from '../lib/context';
 import type { Guards } from '../lib/auth';
 import { audit } from '../lib/audit';
@@ -41,9 +41,9 @@ function expand(ev: typeof events.$inferSelect, from: Date, to: Date) {
 function toIcs(list: (typeof events.$inferSelect)[], appUrl: string, community: string) {
   const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (m) => `\\${m}`);
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${esc(community)}//Enclave//PT`, 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${esc(community)}//Ouroboros//PT`, 'CALSCALE:GREGORIAN'];
   for (const e of list) {
-    lines.push('BEGIN:VEVENT', `UID:${e.id}@enclave`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(e.startsAt)}`);
+    lines.push('BEGIN:VEVENT', `UID:${e.id}@ouroboros`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(e.startsAt)}`);
     if (e.endsAt) lines.push(`DTEND:${fmt(e.endsAt)}`);
     lines.push(`SUMMARY:${esc(e.title)}`, `DESCRIPTION:${esc(e.description)}`, `URL:${appUrl}/app/events`);
     if (e.location) lines.push(`LOCATION:${esc(e.location)}`);

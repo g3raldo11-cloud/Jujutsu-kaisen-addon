@@ -16,7 +16,7 @@ let baseUrl: string;
 const PNG = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0f01f0005000201e2a4e1d40000000049454e44ae426082', 'hex');
 
 function multipart(fields: Record<string, string>, file: { name: string; type: string; data: Buffer }) {
-  const boundary = '----enclave' + Math.random().toString(16).slice(2);
+  const boundary = '----ouroboros' + Math.random().toString(16).slice(2);
   const parts: Buffer[] = [];
   for (const [k, v] of Object.entries(fields)) parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`));
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${file.name}"\r\nContent-Type: ${file.type}\r\n\r\n`), file.data, Buffer.from(`\r\n--${boundary}--\r\n`));

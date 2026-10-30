@@ -4,5 +4,5 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
-  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://enclave:enclave@localhost:5432/enclave' },
+  dbCredentials: { url: process.env.DATABASE_URL ?? 'postgres://ouroboros:ouroboros@localhost:5432/ouroboros' },
 });
