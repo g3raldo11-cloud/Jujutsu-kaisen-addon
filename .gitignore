@@ -13,3 +13,4 @@ playwright-report/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+dump.rdb
