@@ -1,0 +1,106 @@
+# Production stack. Copy .env.example to .env, set DOMAIN/APP_URL/secrets, then: docker compose up -d --build
+name: ouroboros
+
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://ouroboros:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/ouroboros
+      REDIS_URL: redis://redis:6379
+      TRUST_PROXY: "true"
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ouroboros
+      POSTGRES_DB: ouroboros
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ouroboros"]
+      interval: 10s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # Private S3-compatible object storage (set STORAGE_DRIVER=s3 in .env). Never exposed publicly.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-ouroboros}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?set S3_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  # HTTPS termination with automatic certificates (encryption in transit).
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [app]
+    restart: unless-stopped
+
+  # TURN relay for WebRTC behind NAT/firewalls. Host networking is required for the UDP relay range.
+  coturn:
+    image: coturn/coturn:4.6
+    network_mode: host
+    command: ["-c", "/etc/coturn/turnserver.conf", "--static-auth-secret=${TURN_SECRET:?set TURN_SECRET}", "--realm=${DOMAIN}", "--external-ip=${PUBLIC_IP:-}"]
+    volumes:
+      - ./infra/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    restart: unless-stopped
+
+  # Nightly compressed PostgreSQL dumps with rotation.
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: postgres
+      PGUSER: ouroboros
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ouroboros
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./infra/backup/backup.sh:/backup.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  # Optional antivirus scanning of uploads: docker compose --profile antivirus up -d  (and set CLAMAV_HOST=clamav)
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ["antivirus"]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
+  storage:
+  caddydata:
+  caddyconfig:
