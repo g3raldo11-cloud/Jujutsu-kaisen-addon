@@ -1,0 +1,1254 @@
+<title>Lendas: O Despertar</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Londrina+Solid:wght@400;900&family=Chivo:wght@400;600;800&family=Chivo+Mono:wght@500&display=swap">
+<style>
+/* Layout: o jogo ocupa a tela inteira; a interface fica nos cantos como placas pintadas,
+   sempre longe do centro (mira e combate). Visual único e escuro: noite na mata. */
+:root {
+  --breu: #0c1311;        /* noite na mata */
+  --mata: #16382a;        /* verde-mata das placas */
+  --mata-borda: #2c5a45;
+  --urucum: #d9542b;      /* vermelho de urucum: ação, perigo, fogo */
+  --ipe: #f2c230;         /* amarelo-ipê: destaque, foco, suprema */
+  --argila: #c19166;      /* barro: textos secundários */
+  --nevoa: #ece6d6;       /* texto principal */
+  --agua: #4fa6c4;        /* energia espiritual */
+  --vida: #5cc46e;
+  --sombra: rgba(5, 10, 8, 0.74);
+  --display: "Londrina Solid", "Arial Black", Impact, system-ui, sans-serif;
+  --ui: "Chivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --num: "Chivo Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --gutter: 16px;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--breu);
+  color: var(--nevoa);
+  font-family: var(--ui);
+  overflow: hidden;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+  touch-action: none;
+}
+#stage { position: fixed; inset: 0; background: var(--breu); }
+#stage canvas { display: block; width: 100%; height: 100%; }
+
+.hud { position: fixed; z-index: 5; pointer-events: none; }
+.hud button, .hud .interactive { pointer-events: auto; }
+.placa {
+  background: var(--sombra);
+  border: 1px solid var(--mata-borda);
+  border-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+.l-top { top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.l-left { left: max(var(--gutter), env(safe-area-inset-left, 0px)); }
+.l-right { right: max(var(--gutter), env(safe-area-inset-right, 0px)); }
+.l-bottom { bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+
+/* Marca */
+#brand { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; max-width: min(460px, calc(100vw - 2 * var(--gutter))); }
+#brand h1 { margin: 0; font-family: var(--display); font-weight: 900; font-size: 26px; line-height: 1; letter-spacing: 0.02em; color: var(--ipe); text-wrap: balance; }
+#brand h1 span { color: var(--nevoa); font-weight: 400; font-size: 18px; letter-spacing: 0.04em; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font: 600 12px/1 var(--ui); letter-spacing: 0.03em;
+  color: var(--nevoa); background: var(--mata); border: 1px solid var(--mata-borda);
+  border-radius: 999px; padding: 7px 11px; cursor: pointer;
+}
+.chip kbd { font: 500 11px var(--num); color: var(--ipe); margin-right: 5px; }
+.chip[aria-pressed="true"] { background: var(--ipe); color: var(--breu); border-color: var(--ipe); }
+.chip[aria-pressed="true"] kbd { color: var(--breu); }
+.chip:focus-visible, .btn:focus-visible { outline: 2px solid var(--ipe); outline-offset: 2px; }
+
+/* Boneco */
+#dummy { width: 230px; padding: 10px 12px; display: grid; gap: 6px; }
+#dummy h2 { margin: 0; font: 400 20px/1 var(--display); color: var(--ipe); letter-spacing: 0.03em; }
+.stat { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.stat b { font: 500 14px var(--num); font-variant-numeric: tabular-nums; color: var(--nevoa); }
+.stat span { color: var(--argila); }
+#dummy-fx { font-size: 12px; color: var(--argila); min-height: 16px; }
+#dummy-fx em { font-style: normal; color: var(--urucum); margin-right: 8px; white-space: nowrap; }
+#synergy { font-size: 12px; color: var(--argila); border-top: 1px solid var(--mata-borda); padding-top: 6px; display: grid; gap: 3px; }
+#synergy b { color: var(--nevoa); font-weight: 600; }
+
+/* Jogador */
+#player { left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 2 * var(--gutter))); padding: 10px 12px 12px; display: grid; gap: 6px; }
+#player-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+#player-name { font: 400 22px/1 var(--display); letter-spacing: 0.03em; }
+#player-role { font-size: 12px; color: var(--argila); text-align: right; }
+.bar { position: relative; height: 16px; background: rgba(0,0,0,0.55); border-radius: 3px; overflow: hidden; }
+.bar.thin { height: 10px; }
+.bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--vida); transition: width 0.08s linear; }
+.bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 500 11px var(--num); font-variant-numeric: tabular-nums; color: #fff; text-shadow: 0 1px 2px #000; }
+#res-bar i { background: var(--urucum); }
+#energy-bar i { background: var(--agua); }
+#ult-bar i { background: var(--ipe); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#slots { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
+.slot {
+  position: relative; width: 62px; height: 62px; border-radius: 6px; overflow: hidden;
+  background: var(--mata); border: 1px solid var(--mata-borda);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+}
+.slot.small { width: 46px; height: 46px; align-self: flex-end; background: #2a2118; }
+.slot .k { font: 500 11px var(--num); color: var(--ipe); }
+.slot .n { font-size: 9.5px; line-height: 1.1; padding: 0 3px; color: var(--nevoa); }
+.slot .cd { position: absolute; inset: auto 0 0 0; height: 0; background: rgba(0,0,0,0.68); }
+.slot .t { position: absolute; bottom: 3px; left: 0; right: 0; font: 500 11px var(--num); color: #fff; }
+.slot.recast { border-color: var(--ipe); box-shadow: inset 0 0 0 2px var(--ipe); }
+.slot.locked::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.38); }
+
+/* Registro */
+#log { width: min(340px, 42vw); padding: 8px 10px; display: grid; gap: 3px; font-size: 12px; color: var(--argila); }
+#log div:last-child { color: var(--nevoa); }
+#log .res { color: var(--ipe); font-weight: 600; }
+
+/* Ajuda */
+#help { top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 2 * var(--gutter))); max-height: calc(100% - 140px); overflow: auto; padding: 16px 18px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 18px; pointer-events: auto; z-index: 8; }
+#help h3 { margin: 0 0 8px; font: 400 20px/1 var(--display); color: var(--ipe); letter-spacing: 0.03em; }
+#help dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; }
+#help dt { font: 500 12px var(--num); color: var(--ipe); white-space: nowrap; }
+#help dd { margin: 0; color: var(--nevoa); }
+#kit { display: grid; gap: 8px; font-size: 13px; }
+#kit p { margin: 0; line-height: 1.4; color: var(--argila); max-width: 62ch; }
+#kit p b { color: var(--nevoa); }
+#kit p kbd { font: 500 11px var(--num); color: var(--ipe); margin-right: 4px; }
+#help .close { justify-self: start; }
+
+/* Mira e números */
+#crosshair { top: 50%; left: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); }
+#crosshair::before, #crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,0.85); box-shadow: 0 0 2px #000; }
+#crosshair::before { left: 8px; top: 0; width: 2px; height: 18px; }
+#crosshair::after { top: 8px; left: 0; height: 2px; width: 18px; }
+#floaters { inset: 0; overflow: hidden; z-index: 4; }
+.floater { position: absolute; left: 0; top: 0; font: 900 22px/1 var(--display); letter-spacing: 0.02em; text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,0.6); white-space: nowrap; will-change: transform, opacity; }
+
+/* Tela inicial */
+#start { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 30%, rgba(22,56,42,0.86), rgba(8,12,10,0.96)); padding: calc(env(safe-area-inset-top, 0px) + 16px) max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 16px) max(16px, env(safe-area-inset-left, 0px)); overflow: auto; }
+.start-inner { width: min(860px, 100%); display: grid; gap: 18px; }
+.start-inner h2 { margin: 0; font: 900 clamp(40px, 8vw, 76px)/0.95 var(--display); color: var(--ipe); letter-spacing: 0.01em; text-wrap: balance; }
+.start-inner h2 small { display: block; font-weight: 400; font-size: 0.42em; color: var(--nevoa); letter-spacing: 0.06em; margin-top: 6px; }
+.start-inner > p { margin: 0; max-width: 62ch; line-height: 1.5; color: var(--argila); }
+#cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.card {
+  text-align: left; cursor: pointer; padding: 14px; border-radius: 8px; color: var(--nevoa);
+  background: rgba(12, 22, 18, 0.85); border: 1px solid var(--mata-borda); display: grid; gap: 6px; min-width: 0;
+  font-family: var(--ui);
+}
+.card[aria-pressed="true"] { border-color: var(--ipe); box-shadow: inset 0 0 0 1px var(--ipe); }
+.card strong { font: 400 26px/1 var(--display); letter-spacing: 0.02em; }
+.card .role { font-size: 12px; color: var(--urucum); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.card .lore { font-size: 13px; line-height: 1.4; color: var(--argila); }
+.card .swatch { height: 4px; border-radius: 2px; }
+.start-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn { font: 800 16px/1 var(--ui); letter-spacing: 0.04em; padding: 14px 22px; border-radius: 6px; cursor: pointer; border: 0; background: var(--urucum); color: #fff; }
+.btn.ghost { background: transparent; border: 1px solid var(--mata-borda); color: var(--nevoa); font-weight: 600; }
+.note { font-size: 12px; color: var(--argila); }
+
+#paused { top: 50%; left: 50%; transform: translate(-50%, 60px); padding: 8px 14px; font-size: 13px; color: var(--nevoa); }
+
+/* Toque */
+#touch { inset: 0; z-index: 6; }
+#stick { position: absolute; left: max(24px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); width: 132px; height: 132px; border-radius: 50%; background: rgba(12,20,16,0.45); border: 2px solid rgba(236,230,214,0.25); pointer-events: auto; }
+#stick i { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(242,194,48,0.85); }
+#tbtns { position: absolute; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); width: 230px; height: 210px; pointer-events: none; }
+.tb { position: absolute; border-radius: 50%; border: 2px solid rgba(236,230,214,0.35); background: rgba(22,56,42,0.78); color: var(--nevoa); font: 600 12px/1.05 var(--ui); display: grid; place-items: center; text-align: center; pointer-events: auto; overflow: hidden; }
+.tb b { font: 500 13px var(--num); color: var(--ipe); display: block; }
+.tb .cd { position: absolute; inset: auto 0 0 0; height: 0; background: rgba(0,0,0,0.6); }
+.tb.on { background: rgba(217,84,43,0.9); }
+
+@media (max-width: 760px), (pointer: coarse) {
+  #brand h1 { font-size: 20px; }
+  #brand h1 span { display: none; }
+  #dummy { width: 170px; padding: 8px 10px; gap: 4px; }
+  #dummy h2 { font-size: 16px; }
+  .stat { font-size: 11px; }
+  #synergy, #log { display: none; }
+  #player { width: min(300px, 46vw); left: max(var(--gutter), env(safe-area-inset-left, 0px)); transform: none; top: calc(env(safe-area-inset-top, 0px) + 112px); bottom: auto; padding: 8px 10px; }
+  #slots { display: none; }
+  #player-role { display: none; }
+  #cards { grid-template-columns: 1fr; }
+  .card .lore { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar i { transition: none; }
+}
+</style>
+
+<div id="stage" aria-label="Arena 3D"></div>
+
+<div class="hud l-top l-left placa" id="brand">
+  <h1>LENDAS: O DESPERTAR <span>· Arena de Teste</span></h1>
+  <div class="chips" role="group" aria-label="Entidade">
+    <button class="chip" id="pick-saci" data-char="saci"><kbd>1</kbd>Saci-Pererê</button>
+    <button class="chip" id="pick-boitata" data-char="boitata"><kbd>2</kbd>Boitatá</button>
+    <button class="chip" id="pick-curupira" data-char="curupira"><kbd>3</kbd>Curupira</button>
+  </div>
+  <div class="chips" role="group" aria-label="Opções do teste">
+    <button class="chip" id="opt-ally" aria-pressed="false"><kbd>Tab</kbd>Aliado bot</button>
+    <button class="chip" id="opt-move" aria-pressed="false"><kbd>M</kbd>Boneco anda</button>
+    <button class="chip" id="opt-reset"><kbd>⌫</kbd>Zerar boneco</button>
+    <button class="chip" id="opt-help" aria-pressed="false"><kbd>H</kbd>Ajuda</button>
+  </div>
+</div>
+
+<section class="hud l-top l-right placa" id="dummy" aria-label="Boneco de treino">
+  <h2>Boneco de treino</h2>
+  <div class="stat"><span>Dano total</span><b id="d-total">0</b></div>
+  <div class="stat"><span>Último golpe</span><b id="d-last">0</b></div>
+  <div class="stat"><span>DPS (1 s)</span><b id="d-dps">0</b></div>
+  <div class="bar thin" id="d-hp"><i style="background: var(--urucum)"></i><span></span></div>
+  <div id="dummy-fx"></div>
+  <div id="synergy" hidden></div>
+</section>
+
+<section class="hud l-left placa" id="log" style="bottom: calc(env(safe-area-inset-bottom, 0px) + 170px)" aria-live="polite"></section>
+
+<section class="hud l-bottom placa" id="player" aria-label="Seu personagem">
+  <div id="player-head"><span id="player-name"></span><span id="player-role"></span></div>
+  <div class="bar" id="hp-bar"><i></i><span></span></div>
+  <div class="row2">
+    <div class="bar thin" id="energy-bar"><i></i><span></span></div>
+    <div class="bar thin" id="res-bar"><i></i><span></span></div>
+  </div>
+  <div class="row2">
+    <div class="bar thin" id="stamina-bar"><i style="background: var(--argila)"></i><span></span></div>
+    <div class="bar thin" id="ult-bar"><i></i><span></span></div>
+  </div>
+  <div id="slots"></div>
+</section>
+
+<div class="hud" id="crosshair" aria-hidden="true"></div>
+<div class="hud" id="floaters" aria-hidden="true"></div>
+<div class="hud placa" id="paused" hidden>Clique na arena para mirar com o mouse · Esc solta o cursor</div>
+
+<section class="hud placa" id="help" hidden aria-label="Ajuda">
+  <div>
+    <h3>Controles</h3>
+    <dl>
+      <dt>WASD</dt><dd>mover (relativo à câmera)</dd>
+      <dt>Mouse</dt><dd>girar a câmera e mirar (centro da tela)</dd>
+      <dt>Roda</dt><dd>aproximar / afastar</dd>
+      <dt>Clique</dt><dd>ataque básico (segure)</dd>
+      <dt>Q · E · F</dt><dd>habilidades: segure para ver o alcance, solte para lançar</dd>
+      <dt>R</dt><dd>Suprema (aperte de novo para reativar)</dd>
+      <dt>Shift</dt><dd>correr (gasta fôlego)</dd>
+      <dt>Espaço</dt><dd>saltar (evita fogo no chão)</dd>
+      <dt>Ctrl · botão direito</dt><dd>esquiva (invulnerável por um instante)</dd>
+      <dt>1 · 2 · 3</dt><dd>Saci · Boitatá · Curupira</dd>
+      <dt>Tab · M · ⌫</dt><dd>aliado bot · boneco anda · zerar boneco</dd>
+      <dt>← →</dt><dd>girar a câmera sem o mouse</dd>
+    </dl>
+  </div>
+  <div>
+    <h3 id="kit-title">Habilidades</h3>
+    <div id="kit"></div>
+    <p class="note">Na arena a energia e a Suprema são infinitas e as recargas são 4× mais rápidas.</p>
+    <button class="chip close" id="help-close">Fechar ajuda</button>
+  </div>
+</section>
+
+<div class="hud" id="touch" hidden>
+  <div id="stick"><i></i></div>
+  <div id="tbtns"></div>
+</div>
+
+<div id="start">
+  <div class="start-inner">
+    <h2>LENDAS: O DESPERTAR<small>Arena de Teste · escolha uma entidade e teste os poderes no boneco</small></h2>
+    <div id="cards"></div>
+    <div class="start-actions">
+      <button class="btn" id="play">Entrar na arena</button>
+      <span class="note" id="start-note">Teclado e mouse: clique na arena para prender o cursor. No celular aparecem controles de toque.</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   SIMULAÇÃO — porte direto do núcleo C# (LendasODespertar/Assets/Scripts/Core).
+   Tick fixo de 30 Hz, mesmos números e regras da versão Unity (modo Arena de Teste).
+   ===================================================================== */
+const DT = 1 / 30;
+const DEG = Math.PI / 180;
+
+class V {
+  constructor(x = 0, y = 0) { this.x = x; this.y = y; }
+  add(o) { return new V(this.x + o.x, this.y + o.y); }
+  sub(o) { return new V(this.x - o.x, this.y - o.y); }
+  mul(s) { return new V(this.x * s, this.y * s); }
+  get len() { return Math.hypot(this.x, this.y); }
+  get sqr() { return this.x * this.x + this.y * this.y; }
+  get norm() { const l = this.len; return l > 1e-5 ? new V(this.x / l, this.y / l) : new V(); }
+  get perp() { return new V(-this.y, this.x); }
+  rot(a) { const c = Math.cos(a), s = Math.sin(a); return new V(this.x * c - this.y * s, this.x * s + this.y * c); }
+  clampLen(m) { return this.sqr <= m * m ? this : this.norm.mul(m); }
+  eq(o) { return this.x === o.x && this.y === o.y; }
+  static dot(a, b) { return a.x * b.x + a.y * b.y; }
+  static dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  static lerp(a, b, t) { return new V(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); }
+  static fromAngle(a) { return new V(Math.cos(a), Math.sin(a)); }
+  static angleBetween(a, b) {
+    const la = a.len, lb = b.len;
+    if (la < 1e-5 || lb < 1e-5) return 0;
+    return Math.acos(Math.max(-1, Math.min(1, V.dot(a, b) / (la * lb))));
+  }
+  static distToSegment(p, a, b) {
+    const ab = b.sub(a), l2 = ab.sqr;
+    if (l2 < 1e-6) return V.dist(p, a);
+    const t = Math.max(0, Math.min(1, V.dot(p.sub(a), ab) / l2));
+    return V.dist(p, a.add(ab.mul(t)));
+  }
+}
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+/* ---------- Efeitos de status ---------- */
+const S = { LENT: "Lentidão", RAIZ: "Enraizado", ATORD: "Atordoado", ESCUDO: "Escudo", OFUSC: "Ofuscado", VENT: "Ventania", PRESSA: "Pressa", QUEIM: "Queimadura", IMPAR: "Imparável" };
+const CC = new Set([S.LENT, S.RAIZ, S.ATORD, S.OFUSC, S.VENT]);
+class Status {
+  constructor() { this.list = []; }
+  find(t) { return this.list.find((e) => e.type === t) || null; }
+  has(t) { return this.list.some((e) => e.type === t); }
+  mag(t) { const e = this.find(t); return e ? e.mag : 0; }
+  remove(t) { this.list = this.list.filter((e) => e.type !== t); }
+  clear() { this.list = []; }
+  apply(type, dur, mag, src, dir = new V()) {
+    if (dur <= 0) return false;
+    const ex = this.find(type);
+    if (type === S.ESCUDO && ex) { ex.mag = Math.min(600, ex.mag + mag); ex.rem = Math.max(ex.rem, dur); return true; }
+    if (ex) {
+      if (mag >= ex.mag) { ex.mag = mag; ex.dir = dir; ex.src = src; }
+      ex.rem = Math.max(ex.rem, dur);
+      return true;
+    }
+    this.list.push({ type, rem: dur, mag, src, dir });
+    return true;
+  }
+  absorb(d) {
+    const sh = this.find(S.ESCUDO);
+    if (!sh) return d;
+    if (sh.mag >= d) { sh.mag -= d; if (sh.mag <= 0.01) this.remove(S.ESCUDO); return 0; }
+    d -= sh.mag; this.remove(S.ESCUDO); return d;
+  }
+  tick(dt) { for (const e of this.list) e.rem -= dt; this.list = this.list.filter((e) => e.rem > 0); }
+}
+
+/* ---------- Unidades ---------- */
+class Unit {
+  constructor(id, team) {
+    this.id = id; this.team = team;
+    this.pos = new V(); this.vel = new V(); this.facing = new V(1, 0);
+    this.radius = 0.5; this.hp = 1; this.maxHp = 1; this.alive = true;
+    this.status = new Status();
+    this.forcedVel = new V(); this.forcedTime = 0; this.invuln = 0; this.airborne = 0;
+  }
+  get targetable() { return this.alive && this.invuln <= 0; }
+  get isAir() { return this.airborne > 0; }
+  get hpFrac() { return this.maxHp > 0 ? this.hp / this.maxHp : 0; }
+  push(vel, dur) { if (this.status.has(S.IMPAR)) return; this.forcedVel = vel; this.forcedTime = dur; }
+}
+class Champion extends Unit {
+  constructor(id, team) {
+    super(id, team);
+    this.energy = 100; this.maxEnergy = 100; this.ult = 0;
+    this.cd = [0, 0, 0, 0, 0]; this.dodgeCd = 0; this.jumpCd = 0; this.stamina = 100; this.sprinting = false;
+    this.respawn = 0; this.castLock = 0; this.sinceDamaged = 999; this.sinceAttack = 999;
+    this.counters = {}; this.synergies = 0; this.damageDealt = 0;
+  }
+  get canAct() { return this.alive && this.castLock <= 0 && !this.status.has(S.ATORD); }
+  get canMove() { return this.alive && !this.status.has(S.ATORD) && !this.status.has(S.RAIZ); }
+  count(k) { this.counters[k] = (this.counters[k] || 0) + 1; }
+}
+class Decoy extends Unit {}
+
+/* ---------- Comandos ---------- */
+const B = { H1: 1, H2: 2, H3: 4, ULT: 8, DODGE: 16, JUMP: 32 };
+const SLOT_BTN = [0, B.H1, B.H2, B.H3, B.ULT];
+const EMPTY_CMD = { move: new V(), aim: new V(), attack: false, sprint: false, pressed: 0 };
+
+/* ---------- Mapa: Arena de Teste (40 x 40 m) ---------- */
+const ARENA = {
+  min: new V(-20, -20), max: new V(20, 20),
+  water: [{ c: new V(0, 12), r: 4 }],
+  bush: [{ c: new V(0, -12), r: 3.5 }],
+  terrainAt(p) {
+    for (const w of this.water) if (V.dist(p, w.c) <= w.r) return "agua";
+    for (const b of this.bush) if (V.dist(p, b.c) <= b.r) return "mata";
+    return "solo";
+  },
+  clamp(p, r) { return new V(clamp(p.x, this.min.x + r, this.max.x - r), clamp(p.y, this.min.y + r, this.max.y - r)); },
+  blocked(p, r) { return p.x < this.min.x + r || p.x > this.max.x - r || p.y < this.min.y + r || p.y > this.max.y - r; },
+};
+
+/* ---------- Kit base ---------- */
+class Kit {
+  bind(sim, owner) { this.sim = sim; this.owner = owner; this.onBind(); }
+  onBind() {}
+  cast() { return false; }
+  tryRecast() { return false; }
+  tick() {}
+  onMoveInput() {}
+  get speedMult() { return 1; }
+  get damageMult() { return 1; }
+  get radiusMult() { return 1; }
+  get damageTakenMult() { return 1; }
+  get canBasic() { return true; }
+  get ignoresSlows() { return false; }
+  get aquatic() { return false; }
+  onBasicHit() {}
+  onDeath() {}
+  onRespawn() {}
+  isRecast() { return false; }
+  botUse() {}
+  get resName() { return null; }
+  get resValue() { return 0; }
+  get resMax() { return 1; }
+}
+
+/* ---------- Simulação ---------- */
+class Sim {
+  constructor() {
+    this.time = 0; this.nextId = 1;
+    this.champions = []; this.decoys = []; this.zones = []; this.events = [];
+    this.commands = new Map(); this.bots = new Map();
+    this.map = ARENA;
+    this.infinite = true; // Arena de Teste: recursos infinitos, recargas 4x mais rápidas
+    this.synergy = new Synergy(this);
+  }
+  id() { return this.nextId++; }
+  emit(type, o = {}) { this.events.push(Object.assign({ type }, o)); }
+
+  addChampion(team, charId, name, isBot) {
+    const def = CHARS[charId];
+    const st = def.stats();
+    const c = new Champion(this.id(), team);
+    Object.assign(c, { name, charId, stats: st, isBot, maxHp: st.maxHp, hp: st.maxHp, radius: st.radius });
+    c.facing = new V(team === 0 ? 1 : -1, 0);
+    c.kit = def.kit();
+    this.champions.push(c);
+    c.kit.bind(this, c);
+    if (isBot) this.bots.set(c.id, new AllyBot(this, c));
+    return c;
+  }
+  setCommand(id, cmd) { this.commands.set(id, cmd); }
+
+  step() {
+    this.time += DT;
+    for (const c of this.champions) {
+      if (!c.alive) { c.respawn -= DT; if (c.respawn <= 0) this.revive(c); continue; }
+      const cmd = c.isBot ? this.bots.get(c.id).think(DT) : (this.commands.get(c.id) || EMPTY_CMD);
+      this.timers(c);
+      this.process(c, cmd);
+      c.kit.tick(DT);
+      if (!c.isBot && this.commands.has(c.id)) this.commands.set(c.id, Object.assign({}, cmd, { pressed: 0 }));
+    }
+    for (const c of this.champions) this.tickUnitStatus(c);
+    this.integrate();
+    this.tickZones();
+    this.tickDecoys();
+    this.synergy.tick();
+  }
+
+  timers(c) {
+    for (let s = 0; s < 5; s++) if (c.cd[s] > 0) c.cd[s] -= DT;
+    if (c.dodgeCd > 0) c.dodgeCd -= DT;
+    if (c.jumpCd > 0) c.jumpCd -= DT;
+    if (c.castLock > 0) c.castLock -= DT;
+    c.sinceDamaged += DT; c.sinceAttack += DT;
+    c.energy = Math.min(c.maxEnergy, c.energy + c.stats.regen * DT);
+    c.ult = Math.min(100, c.ult + DT);
+    if (this.infinite) { c.energy = c.maxEnergy; c.ult = 100; }
+  }
+
+  process(c, cmd) {
+    const toAim = cmd.aim.sub(c.pos);
+    if (toAim.sqr > 0.04 && c.canAct) c.facing = toAim.norm;
+    for (let s = 1; s <= 4; s++) if (cmd.pressed & SLOT_BTN[s]) this.tryCast(c, s, cmd.aim);
+    if (cmd.pressed & B.DODGE) this.dodge(c, cmd.move);
+    if (cmd.pressed & B.JUMP) this.jump(c);
+    if (cmd.attack) this.basic(c);
+    const move = cmd.move.clampLen(1);
+    c.kit.onMoveInput(move);
+    const wantsSprint = cmd.sprint && move.sqr > 0.01 && c.stamina > 1;
+    c.sprinting = wantsSprint && c.canMove;
+    c.stamina = c.sprinting ? Math.max(0, c.stamina - 22 * DT) : Math.min(100, c.stamina + 14 * DT);
+    c.vel = c.canMove ? move.mul(this.speed(c)) : new V();
+    const w = c.status.find(S.VENT);
+    if (w && !c.status.has(S.IMPAR)) c.vel = c.vel.add(w.dir.mul(w.mag));
+  }
+
+  speed(c) {
+    let s = c.stats.speed * c.kit.speedMult;
+    if (this.map.terrainAt(c.pos) === "agua" && !c.isAir) s *= c.kit.aquatic ? 1.2 : 0.8;
+    if (!c.kit.ignoresSlows && !c.status.has(S.IMPAR)) s *= 1 - clamp(c.status.mag(S.LENT), 0, 0.8);
+    s *= 1 + c.status.mag(S.PRESSA);
+    if (c.sprinting) s *= 1.3;
+    return s;
+  }
+
+  canCast(c, slot) {
+    if (!c.canAct) return false;
+    const a = c.stats.abilities[slot];
+    if (!a || c.cd[slot] > 0 || c.energy < a.cost) return false;
+    if (slot === 4 && c.ult < 100) return false;
+    return true;
+  }
+
+  tryCast(c, slot, aim) {
+    if (!c.alive) return false;
+    if (c.canAct && c.kit.tryRecast(slot, aim)) {
+      this.emit("recast", { src: c.id, slot, text: c.stats.abilities[slot].name, pos: c.pos });
+      return true;
+    }
+    if (!this.canCast(c, slot)) return false;
+    const a = c.stats.abilities[slot];
+    if (!c.kit.cast(slot, aim)) return false;
+    c.cd[slot] = this.infinite ? a.cd * 0.25 : a.cd;
+    c.energy -= a.cost;
+    if (slot === 4) c.ult = 0;
+    c.sinceAttack = 0;
+    this.emit("cast", { src: c.id, slot, text: a.name, pos: c.pos });
+    return true;
+  }
+
+  dodge(c, move) {
+    if (c.dodgeCd > 0 || !c.canMove) return;
+    const dir = move.sqr > 0.01 ? move.norm : c.facing;
+    c.forcedVel = dir.mul(5 / 0.2); c.forcedTime = 0.2; c.invuln = 0.25; c.dodgeCd = 4.5;
+    this.emit("dodge", { src: c.id, pos: c.pos });
+  }
+  jump(c) {
+    if (c.jumpCd > 0 || c.isAir || !c.canMove) return;
+    c.airborne = 0.65; c.jumpCd = 1.2;
+    this.emit("jump", { src: c.id, pos: c.pos });
+  }
+  basic(c) {
+    if (!c.canAct || !c.kit.canBasic || c.cd[0] > 0) return;
+    c.cd[0] = c.stats.basicInterval; c.sinceAttack = 0;
+    this.emit("basic", { src: c.id, pos: c.pos });
+    if (c.status.has(S.OFUSC)) { this.emit("miss", { src: c.id, pos: c.pos }); return; }
+    const hits = this.cone(c.pos, c.facing, c.stats.basicRange * c.kit.radiusMult, c.stats.basicArc, c.team);
+    for (const u of hits) { this.damage(c, u, c.stats.basicDamage * c.kit.damageMult); c.kit.onBasicHit(u); }
+  }
+
+  damage(src, target, amount) {
+    if (!target || !target.targetable || amount <= 0) return 0;
+    if (src && src.team === target.team) return 0;
+    if (target instanceof Decoy) { this.killDecoy(target, src); return 0; }
+    if (target instanceof Champion) amount *= target.kit.damageTakenMult;
+    const rem = target.status.absorb(amount);
+    const dealt = Math.min(target.hp, rem);
+    target.hp -= rem;
+    if (src) { src.damageDealt += dealt; src.ult = Math.min(100, src.ult + dealt * 0.05); src.sinceAttack = 0; }
+    if (target instanceof Champion) target.sinceDamaged = 0;
+    this.emit("damage", { src: src ? src.id : 0, tgt: target.id, pos: target.pos, value: amount });
+    if (target.hp <= 0 && target instanceof Champion) this.kill(target, src);
+    return amount;
+  }
+
+  applyStatus(target, type, dur, mag, src, dir = new V()) {
+    if (!target || !target.alive) return false;
+    const hostile = type !== S.ESCUDO && type !== S.PRESSA && type !== S.IMPAR;
+    if (hostile) {
+      if (target.invuln > 0) return false;
+      if (type !== S.QUEIM && target.status.has(S.IMPAR)) return false;
+      if (src && src.team === target.team) return false;
+    }
+    const ok = target.status.apply(type, dur, mag, src ? src.id : 0, dir);
+    if (ok && type === S.ATORD && target.castLock > 0) { target.castLock = 0; this.emit("interrupt", { tgt: target.id }); }
+    return ok;
+  }
+
+  kill(dead, killer) {
+    dead.alive = false; dead.hp = 0; dead.vel = new V(); dead.forcedTime = 0; dead.status.clear();
+    dead.respawn = 3; dead.kit.onDeath();
+    this.emit("death", { src: killer ? killer.id : 0, tgt: dead.id, pos: dead.pos });
+  }
+  revive(c) {
+    c.alive = true; c.hp = c.maxHp; c.energy = c.maxEnergy; c.pos = new V(-6, 0); c.forcedTime = 0; c.invuln = 1.5;
+    c.status.clear(); c.kit.onRespawn();
+  }
+  killDecoy(d, src) {
+    if (!d.alive) return;
+    d.alive = false;
+    this.emit("decoyBroken", { src: src ? src.id : 0, tgt: d.id, pos: d.pos });
+  }
+
+  tickUnitStatus(u) {
+    if (!u.alive) return;
+    if (u.invuln > 0) u.invuln -= DT;
+    if (u.airborne > 0) u.airborne -= DT;
+    const burn = u.status.find(S.QUEIM);
+    if (burn && u.invuln <= 0) this.damage(this.champion(burn.src), u, burn.mag * DT);
+    u.status.tick(DT);
+  }
+
+  integrate() {
+    for (const c of this.champions) if (c.alive) this.moveUnit(c);
+    const cs = this.champions;
+    for (let i = 0; i < cs.length; i++) {
+      const a = cs[i];
+      if (!a.alive) continue;
+      for (let j = i + 1; j < cs.length; j++) {
+        const b = cs[j];
+        if (!b.alive || a.isAir || b.isAir) continue;
+        const ra = a.radius * a.kit.radiusMult, rb = b.radius * b.kit.radiusMult;
+        const d = b.pos.sub(a.pos), dist = d.len, min = (ra + rb) * 0.9;
+        if (dist >= min || dist < 1e-4) continue;
+        const n = d.mul(1 / dist), p = (min - dist) * 0.5;
+        a.pos = this.map.clamp(a.pos.sub(n.mul(p)), ra);
+        b.pos = this.map.clamp(b.pos.add(n.mul(p)), rb);
+      }
+    }
+  }
+  moveUnit(u) {
+    let step;
+    if (u.forcedTime > 0) { step = u.forcedVel.mul(DT); u.forcedTime -= DT; }
+    else step = u.vel.mul(DT);
+    const r = u.radius * (u.kit ? u.kit.radiusMult : 1);
+    u.pos = this.map.clamp(u.pos.add(step), r);
+    if (!(u instanceof Champion) && step.sqr > 1e-6 && u.forcedTime <= 0) u.facing = step.norm;
+  }
+  resolve(p, r) { return this.map.clamp(p, r); }
+
+  addZone(kind, owner, pos, radius, dur, followId = -1) {
+    const z = { id: this.id(), kind, ownerId: owner ? owner.id : 0, team: owner ? owner.team : -1, pos, radius, rem: dur, dur, tickTimer: 0, followId, power: 1 };
+    this.zones.push(z);
+    return z;
+  }
+  tickZones() {
+    for (let i = this.zones.length - 1; i >= 0; i--) {
+      const z = this.zones[i];
+      z.rem -= DT;
+      if (z.followId >= 0) { const f = this.unit(z.followId); if (f && f.alive) z.pos = f.pos; }
+      const owner = this.champion(z.ownerId);
+      switch (z.kind) {
+        case "fogo":
+          z.tickTimer -= DT;
+          if (z.tickTimer <= 0) { z.tickTimer = 0.25; this.eachEnemy(z.pos, z.radius, z.team, (u) => { if (!u.isAir) this.damage(owner, u, 24 * 0.25); }); }
+          break;
+        case "reino":
+          this.eachEnemy(z.pos, z.radius, z.team, (u) => this.applyStatus(u, S.LENT, 0.3, 0.25, owner));
+          break;
+        case "tempestade":
+          this.eachEnemy(z.pos, z.radius, z.team, (u) => {
+            this.damage(owner, u, 45 * DT);
+            if (!u.status.has(S.IMPAR)) { const to = z.pos.sub(u.pos); if (to.sqr > 0.25) u.pos = this.resolve(u.pos.add(to.norm.mul(2.5 * DT)), u.radius); }
+          });
+          break;
+        case "pegada":
+          if (z.rem <= 0) {
+            const dmg = 50 * z.power;
+            this.eachEnemy(z.pos, z.radius, z.team, (u) => {
+              if (u.isAir) return;
+              this.damage(owner, u, dmg);
+              if (z.power >= CurupiraKit.HOT_POWER) this.applyStatus(u, S.QUEIM, 2, 20, owner);
+            });
+            this.emit("explode", { src: z.ownerId, pos: z.pos, value: z.radius });
+          }
+          break;
+        case "circulo":
+          this.eachEnemy(z.pos, z.radius + 1, z.team, (u) => {
+            const d = V.dist(u.pos, z.pos);
+            if (Math.abs(d - z.radius) > 0.9) return;
+            this.damage(owner, u, 40 * z.power * DT);
+            if (!u.status.has(S.IMPAR)) {
+              const out = d > 0.01 ? u.pos.sub(z.pos).mul(1 / d) : new V(1, 0);
+              u.pos = this.resolve(z.pos.add(out.mul(z.radius + 1)), u.radius);
+            }
+          });
+          break;
+        case "ira":
+          this.eachEnemy(z.pos, z.radius, z.team, (u) => { if (!u.isAir) this.damage(owner, u, 20 * DT); });
+          break;
+      }
+      if (z.rem <= 0) this.zones.splice(i, 1);
+    }
+  }
+
+  addDecoy(owner, pos, dir, speed, life) {
+    const d = new Decoy(this.id(), owner.team);
+    Object.assign(d, { ownerId: owner.id, charId: owner.charId, pos, facing: dir.sqr > 0.01 ? dir.norm : owner.facing, radius: owner.radius, maxHp: owner.maxHp, hp: owner.hp, speed, life });
+    d.vel = d.facing.mul(speed);
+    this.decoys.push(d);
+    return d;
+  }
+  tickDecoys() {
+    for (let i = this.decoys.length - 1; i >= 0; i--) {
+      const d = this.decoys[i];
+      d.life -= DT;
+      if (d.alive) { d.vel = d.facing.mul(d.speed); this.moveUnit(d); }
+      if (d.life <= 0) d.alive = false;
+      if (!d.alive) this.decoys.splice(i, 1);
+    }
+  }
+
+  unit(id) { return this.champions.find((c) => c.id === id) || this.decoys.find((d) => d.id === id) || null; }
+  champion(id) { return this.champions.find((c) => c.id === id) || null; }
+  hostiles(team) {
+    const out = [];
+    for (const c of this.champions) if (c.alive && c.team !== team) out.push(c);
+    for (const d of this.decoys) if (d.alive && d.team !== team) out.push(d);
+    return out;
+  }
+  eachEnemy(center, radius, team, fn) {
+    const list = this.hostiles(team).filter((u) => V.dist(u.pos, center) <= radius + u.radius);
+    for (const u of list) fn(u);
+  }
+  cone(origin, dir, range, arcDeg, team) {
+    const half = arcDeg * 0.5 * DEG;
+    return this.hostiles(team).filter((u) => {
+      const to = u.pos.sub(origin), d = to.len;
+      if (d > range + u.radius) return false;
+      if (d > u.radius + 0.3 && V.angleBetween(dir, to) > half) return false;
+      return true;
+    });
+  }
+}
+
+/* ---------- Fusão de Lendas (sinergias) ---------- */
+const RULES = {
+  tempestade: { id: "tempestade", name: "Tempestade de Brasas", cd: 25, desc: "Redemoinho do Saci atravessando fogo aliado vira um tornado de brasas." },
+  brasa: { id: "brasa", name: "Brasa ao Vento", cd: 18, desc: "Vento Travesso soprado através de fogo aliado espalha queimaduras." },
+};
+class Synergy {
+  constructor(sim) { this.sim = sim; this.ready = [{}, {}]; this.lock = [0, 0]; }
+  isReady(team, rule) { return this.sim.time >= this.lock[team] && !(this.ready[team][rule.id] > this.sim.time); }
+  remaining(team, rule) { return Math.max(0, Math.max(this.ready[team][rule.id] || 0, this.lock[team]) - this.sim.time); }
+  consume(team, rule, a, b, pos) {
+    this.ready[team][rule.id] = this.sim.time + rule.cd;
+    this.lock[team] = this.sim.time + 8;
+    a.synergies++; if (b && b !== a) b.synergies++;
+    this.sim.emit("synergy", { src: a.id, tgt: b ? b.id : 0, pos, text: rule.name });
+  }
+  alliedFire(team, center, radius, exclude) {
+    return this.sim.zones.find((z) => z.team === team && z.ownerId !== exclude && (z.kind === "fogo" || z.kind === "circulo" || z.kind === "ira") && V.dist(z.pos, center) <= z.radius + radius) || null;
+  }
+  tick() {
+    for (const c of this.sim.champions) {
+      const k = c.kit;
+      if (!c.alive || !(k instanceof SaciKit) || !k.isTornado || k.fused) continue;
+      if (!this.isReady(c.team, RULES.tempestade)) continue;
+      const fire = this.alliedFire(c.team, c.pos, 1.2, c.id);
+      if (!fire) continue;
+      k.fused = true;
+      this.sim.addZone("tempestade", c, c.pos, 3.2, k.tornado + 3, c.id);
+      this.consume(c.team, RULES.tempestade, c, this.sim.champion(fire.ownerId), c.pos);
+    }
+  }
+  tryBrasa(saci, origin, dir, range, hit) {
+    if (!this.isReady(saci.team, RULES.brasa)) return false;
+    let fire = null;
+    for (let d = 0; d <= range && !fire; d += 1.5) fire = this.alliedFire(saci.team, origin.add(dir.mul(d)), 1.5, saci.id);
+    if (!fire) return false;
+    for (const u of hit) this.sim.applyStatus(u, S.QUEIM, 3, 25, saci);
+    this.consume(saci.team, RULES.brasa, saci, this.sim.champion(fire.ownerId), fire.pos);
+    return true;
+  }
+}
+/* ---------- SACI-PERERÊ ---------- */
+class SaciKit extends Kit {
+  onBind() { this.stacks = 0; this.stackTimer = 0; this.gate = 0; this.lastDir = new V(); this.tornado = 0; this.fused = false; this.hits = new Set(); this.decoyId = -1; this.swapTimer = 0; this.realm = null; this.blinkCd = 0; }
+  get isTornado() { return this.tornado > 0; }
+  get speedMult() { return (1 + 0.07 * this.stacks) * (this.isTornado ? 1.75 : 1); }
+  get canBasic() { return !this.isTornado; }
+  get ignoresSlows() { return this.isTornado; }
+  get damageTakenMult() { return 1 - 0.04 * this.stacks; }
+  get resName() { return "Travessura"; }
+  get resValue() { return this.stacks; }
+  get resMax() { return 4; }
+  get realmActive() { return this.realm && this.realm.rem > 0; }
+  isRecast(slot) { return (slot === 2 && this.decoyId >= 0) || (slot === 4 && this.realmActive); }
+  onMoveInput(dir) {
+    if (dir.sqr < 0.25) return;
+    const d = dir.norm;
+    if (this.lastDir.sqr > 0.25 && this.gate <= 0 && V.angleBetween(this.lastDir, d) > 50 * DEG) {
+      this.stacks = Math.min(4, this.stacks + 1); this.stackTimer = 2; this.gate = 0.25;
+    }
+    this.lastDir = d;
+  }
+  tick() {
+    const o = this.owner, sim = this.sim;
+    if (this.gate > 0) this.gate -= DT;
+    if (this.stackTimer > 0) { this.stackTimer -= DT; if (this.stackTimer <= 0) this.stacks = 0; }
+    if (this.blinkCd > 0) this.blinkCd -= DT;
+    if (this.isTornado) {
+      this.tornado -= DT;
+      sim.eachEnemy(o.pos, o.radius + 1.2, o.team, (u) => {
+        if (this.hits.has(u.id)) return;
+        this.hits.add(u.id);
+        sim.damage(o, u, 70);
+        let side = u.pos.sub(o.pos).norm;
+        if (side.sqr < 0.01) side = o.facing.perp;
+        u.push(side.mul(9), 0.25);
+      });
+      if (this.tornado <= 0) { this.tornado = 0; sim.addZone("ancora", o, o.pos, 1, 12); }
+    }
+    if (this.decoyId >= 0) {
+      this.swapTimer -= DT;
+      const d = sim.unit(this.decoyId);
+      if (!d || !d.alive) this.decoyId = -1;
+      else if (this.swapTimer <= 0) this.swap(d);
+    }
+    if (this.realm && this.realm.rem <= 0) this.realm = null;
+  }
+  tryRecast(slot, aim) {
+    const o = this.owner, sim = this.sim;
+    if (slot === 2 && this.decoyId >= 0) {
+      const d = sim.unit(this.decoyId);
+      if (d && d.alive && this.swapTimer <= 1.1) { this.swap(d); return true; }
+      return false;
+    }
+    if (slot === 4 && this.realmActive) {
+      if (this.blinkCd > 0) return false;
+      let best = null, bd = Infinity;
+      for (const z of sim.zones) {
+        if (z.ownerId !== o.id || z.kind !== "ancora") continue;
+        if (V.dist(z.pos, this.realm.pos) > this.realm.radius + 0.5) continue;
+        if (V.dist(z.pos, o.pos) < 1.5) continue;
+        const d = V.dist(z.pos, aim);
+        if (d < bd) { bd = d; best = z; }
+      }
+      if (!best) return false;
+      o.pos = sim.resolve(best.pos, o.radius);
+      this.blinkCd = 0.6;
+      sim.eachEnemy(o.pos, 3, o.team, (u) => sim.damage(o, u, 80));
+      o.count("saltos");
+      sim.emit("blink", { src: o.id, pos: o.pos });
+      return true;
+    }
+    return false;
+  }
+  cast(slot, aim) {
+    const o = this.owner, sim = this.sim;
+    let dir = aim.sub(o.pos).norm;
+    if (dir.sqr < 0.01) dir = o.facing;
+    switch (slot) {
+      case 1: this.tornado = 1.8; this.fused = false; this.hits.clear(); return true;
+      case 2: {
+        if (this.decoyId >= 0) return false;
+        const d = sim.addDecoy(o, o.pos, dir, sim.speed(o), 2.2);
+        this.decoyId = d.id; this.swapTimer = 1.4;
+        return true;
+      }
+      case 3: {
+        const hit = sim.cone(o.pos, dir, 9, 70, o.team);
+        for (const u of hit) {
+          sim.damage(o, u, 35);
+          if (!u.alive) continue;
+          u.push(dir.mul(13), 0.3);
+          sim.applyStatus(u, S.VENT, 2, 3.2, o, dir);
+        }
+        sim.synergy.tryBrasa(o, o.pos, dir, 9, hit);
+        return true;
+      }
+      case 4: {
+        const center = sim.resolve(o.pos.add(aim.sub(o.pos).clampLen(8)), 0.5);
+        this.realm = sim.addZone("reino", o, center, 10, 7);
+        for (let i = 0; i < 4; i++) sim.addZone("ancora", o, sim.resolve(center.add(V.fromAngle(i * Math.PI / 2 + 0.4).mul(6)), 0.5), 1, 7);
+        sim.addZone("ancora", o, center, 1, 7);
+        this.blinkCd = 0.2;
+        return true;
+      }
+    }
+    return false;
+  }
+  swap(d) {
+    const o = this.owner, a = o.pos;
+    o.pos = this.sim.resolve(d.pos, o.radius);
+    d.pos = a; d.life = Math.min(d.life, 0.8);
+    this.decoyId = -1;
+    this.sim.emit("swap", { src: o.id, tgt: d.id, pos: o.pos });
+  }
+  onDeath() { this.tornado = 0; this.stacks = 0; this.decoyId = -1; this.realm = null; }
+  botUse(ctx) {
+    const t = ctx.target;
+    if (this.decoyId >= 0 && this.owner.hpFrac < 0.5) { ctx.use(2, this.owner.pos); return; }
+    if (this.realmActive && t && V.dist(t.pos, this.owner.pos) > 3) { ctx.use(4, t.pos); return; }
+    if (!t) return;
+    const d = ctx.dist;
+    if (ctx.ready(4) && d < 9 && ctx.chance(0.15)) { ctx.use(4, t.pos); return; }
+    if (ctx.ready(3) && d < 7 && ctx.chance(0.4)) { ctx.use(3, t.pos); return; }
+    if (ctx.ready(1) && d < 6 && ctx.chance(0.35)) { ctx.use(1, t.pos); return; }
+    if (ctx.ready(2) && d < 8 && ctx.chance(0.1)) ctx.use(2, this.owner.pos.add(t.pos.sub(this.owner.pos).perp.norm.mul(6)));
+    if (this.isTornado) ctx.moveTowards(t.pos);
+  }
+}
+
+/* ---------- BOITATÁ ---------- */
+class BoitataKit extends Kit {
+  static MAX = 100; static BURNING = 60; static SEGS = 7; static GIANT_SEGS = 12; static SPACING = 0.9; static SEG_R = 0.55;
+  onBind() { this.heat = 0; this.trail = []; this.segments = []; this.charge = 0; this.chargeT = 0; this.chargeDir = new V(1, 0); this.chargeHits = new Set(); this.trailT = 0; this.trailDrop = 0; this.giant = 0; this.wave = 0; this.resetBody(); }
+  get isCharging() { return this.charge > 0; }
+  get trailActive() { return this.trailT > 0; }
+  get giantForm() { return this.giant > 0; }
+  get speedMult() { return (this.giantForm ? 1.35 : 1) * (this.trailActive ? 1.15 : 1); }
+  get damageMult() { return 1 + 0.2 * (this.heat / 100); }
+  get radiusMult() { return this.giantForm ? 1.5 : 1; }
+  get canBasic() { return !this.isCharging; }
+  get resName() { return "Calor"; }
+  get resValue() { return this.heat; }
+  get resMax() { return 100; }
+  resetBody() {
+    const o = this.owner;
+    this.trail = [o.pos];
+    this.segments = [];
+    const n = this.giantForm ? 12 : 7;
+    for (let i = 0; i < n; i++) this.segments.push(o.pos.sub(o.facing.mul(0.9 * (i + 1))));
+  }
+  cast(slot, aim) {
+    const o = this.owner, sim = this.sim;
+    let dir = aim.sub(o.pos).norm;
+    if (dir.sqr < 0.01) dir = o.facing;
+    switch (slot) {
+      case 1: this.chargeDir = dir; this.charge = 0.55; this.chargeT = 0; this.chargeHits.clear(); this.heat = Math.min(100, this.heat + 20); return true;
+      case 2: {
+        const blind = this.heat >= 60 ? 3 : 2.2;
+        for (const u of sim.cone(o.pos, dir, 8, 60, o.team)) {
+          sim.damage(o, u, 25 * this.damageMult);
+          sim.applyStatus(u, S.OFUSC, blind, 1, o);
+          sim.applyStatus(u, S.LENT, 1.2, 0.3, o);
+        }
+        return true;
+      }
+      case 3: this.trailT = 4; this.trailDrop = 0; return true;
+      case 4:
+        this.giant = 6; this.wave = 0.4; this.heat = 100;
+        sim.applyStatus(o, S.IMPAR, 6, 1, o);
+        o.status.remove(S.LENT); o.status.remove(S.RAIZ); o.status.remove(S.VENT);
+        return true;
+    }
+    return false;
+  }
+  tick() {
+    const o = this.owner, sim = this.sim;
+    const moving = o.vel.sqr > 1 || o.forcedTime > 0;
+    if (this.giantForm) this.heat = 100;
+    else this.heat = clamp(this.heat + (moving ? 14 : -22) * DT, 0, 100);
+    if (this.isCharging) {
+      this.chargeT += DT; this.charge -= DT;
+      const lateral = this.chargeDir.perp.mul(Math.cos(this.chargeT * 18) * 6);
+      o.forcedVel = this.chargeDir.mul(9 / 0.55).add(lateral);
+      o.forcedTime = DT * 1.01;
+      sim.eachEnemy(o.pos, 1.6 * this.radiusMult, o.team, (u) => {
+        if (this.chargeHits.has(u.id)) return;
+        this.chargeHits.add(u.id);
+        sim.damage(o, u, 70 * this.damageMult);
+        u.push(this.chargeDir.add(u.pos.sub(o.pos).norm).norm.mul(10), 0.25);
+      });
+    }
+    if (this.trailActive) {
+      this.trailT -= DT; this.trailDrop -= DT;
+      if (this.trailDrop <= 0) {
+        this.trailDrop = 0.35;
+        const tail = this.segments.length ? this.segments[this.segments.length - 1] : o.pos;
+        sim.addZone("fogo", o, tail, 1.3, 3.5);
+      }
+    }
+    if (this.giantForm) {
+      this.giant -= DT; this.wave -= DT;
+      if (this.wave <= 0) {
+        this.wave = 0.8;
+        sim.eachEnemy(o.pos, 5, o.team, (u) => { sim.damage(o, u, 42); sim.applyStatus(u, S.LENT, 1, 0.2, o); });
+        sim.emit("wave", { src: o.id, pos: o.pos });
+      }
+    }
+    this.updateBody();
+    this.bodyCollision();
+  }
+  updateBody() {
+    const o = this.owner;
+    if (!this.trail.length || V.dist(this.trail[0], o.pos) > 0.15) this.trail.unshift(o.pos);
+    const count = this.giantForm ? 12 : 7, spacing = 0.9 * this.radiusMult;
+    while (this.segments.length < count) this.segments.push(this.segments.length ? this.segments[this.segments.length - 1] : o.pos);
+    while (this.segments.length > count) this.segments.pop();
+    let needed = spacing, seg = 0, acc = 0, prev = o.pos;
+    for (let i = 0; i < this.trail.length && seg < count; i++) {
+      const p = this.trail[i];
+      let d = V.dist(prev, p);
+      while (d > 0 && acc + d >= needed && seg < count) {
+        const t = (needed - acc) / d;
+        const point = V.lerp(prev, p, t);
+        this.segments[seg++] = point;
+        d -= needed - acc; prev = point; acc = 0; needed = spacing;
+      }
+      acc += d; prev = p;
+    }
+    for (; seg < count; seg++) this.segments[seg] = seg > 0 ? this.segments[seg - 1] : o.pos;
+    const maxLen = spacing * (count + 2);
+    let total = 0;
+    for (let i = 1; i < this.trail.length; i++) {
+      total += V.dist(this.trail[i - 1], this.trail[i]);
+      if (total > maxLen) { this.trail.length = i + 1; break; }
+    }
+  }
+  bodyCollision() {
+    const o = this.owner, sim = this.sim;
+    const segR = 0.55 * this.radiusMult, burning = this.heat >= 60;
+    for (const c of sim.champions) {
+      if (!c.alive || c.team === o.team || c.isAir) continue;
+      if (c.kit instanceof SaciKit && c.kit.isTornado) continue;
+      const cr = c.radius * c.kit.radiusMult;
+      let touched = false;
+      for (let pass = 0; pass < 2; pass++) {
+        for (let i = 0; i < this.segments.length; i++) {
+          const s = this.segments[i];
+          const d = c.pos.sub(s), dist = d.len, min = segR + cr;
+          if (dist >= min) continue;
+          let n = dist > 1e-4 ? d.mul(1 / dist) : o.facing.perp;
+          const along = i > 0 ? this.segments[i - 1].sub(s).norm : o.facing;
+          const side = n.sub(along.mul(V.dot(n, along)));
+          n = side.sqr > 0.01 ? side.norm : along.perp;
+          const sideDist = V.dot(c.pos.sub(s), n);
+          c.pos = sim.resolve(c.pos.add(n.mul(min - sideDist)), cr);
+          touched = true;
+        }
+      }
+      if (touched && burning && sim.applyStatus(c, S.QUEIM, 1, 12, o)) o.count("corpo");
+    }
+  }
+  onDeath() { this.heat = 0; this.charge = 0; this.trailT = 0; this.giant = 0; }
+  onRespawn() { this.resetBody(); }
+  botUse(ctx) {
+    const t = ctx.target;
+    if (!t) return;
+    const d = ctx.dist;
+    if (ctx.ready(4) && d < 4 && ctx.chance(0.15)) { ctx.use(4, t.pos); return; }
+    if (ctx.ready(2) && d < 7 && ctx.chance(0.5)) { ctx.use(2, t.pos); return; }
+    if (ctx.ready(1) && d > 3 && d < 8.5 && ctx.chance(0.4)) { ctx.use(1, t.pos); return; }
+    if (ctx.ready(3) && d < 6 && ctx.chance(0.4)) ctx.use(3, t.pos);
+    if (d < 2.5) ctx.strafe(t.pos, 0.6);
+  }
+}
+
+/* ---------- CURUPIRA (versão de fogo) ---------- */
+class CurupiraKit extends Kit {
+  static MAX = 100; static HOT = 60; static HOT_POWER = 1.3; static FLAME_SPEED = 15; static FLAME_RANGE = 12;
+  onBind() { this.heat = 0; this.sinceGain = 999; this.flames = []; this.toFire = 0; this.flameTimer = 0; this.flameDir = new V(1, 0); this.dashT = 0; this.dashDir = new V(1, 0); this.stepAcc = 0; this.wrath = null; this.jetTimer = 0; this.jetDir = new V(1, 0); }
+  get isHot() { return this.heat >= 60; }
+  get power() { return 1 + 0.5 * (this.heat / 100); }
+  get isDashing() { return this.dashT > 0; }
+  get wrathActive() { return this.wrath && this.wrath.rem > 0; }
+  get speedMult() { return this.isHot ? 1.1 : 1; }
+  get canBasic() { return !this.isDashing; }
+  get resName() { return "Calor"; }
+  get resValue() { return this.heat; }
+  get resMax() { return 100; }
+  gain(a) { this.heat = Math.min(100, this.heat + a); this.sinceGain = 0; }
+  abilityHit(u) { this.gain(6); if (this.isHot) this.sim.applyStatus(u, S.QUEIM, 2, 20, this.owner); }
+  onBasicHit(t) { this.gain(12); if (this.isHot) this.sim.applyStatus(t, S.QUEIM, 1.5, 15, this.owner); }
+  cast(slot, aim) {
+    const o = this.owner, sim = this.sim;
+    let dir = aim.sub(o.pos).norm;
+    if (dir.sqr < 0.01) dir = o.facing;
+    switch (slot) {
+      case 1: this.toFire = 3 + Math.floor(this.heat / 33); this.flameTimer = 0; this.flameDir = dir; return true;
+      case 2: this.dashDir = dir; this.dashT = 0.4; this.stepAcc = 0.6; o.invuln = Math.max(o.invuln, 0.1); return true;
+      case 3: {
+        const center = o.pos.add(aim.sub(o.pos).clampLen(8));
+        const z = sim.addZone("circulo", o, center, 4.5 + 1.5 * (this.heat / 100), 5);
+        z.power = this.power;
+        return true;
+      }
+      case 4: {
+        const dmg = 120 * this.power;
+        sim.eachEnemy(o.pos, 7, o.team, (u) => { sim.damage(o, u, dmg); u.push(u.pos.sub(o.pos).norm.mul(10), 0.3); this.abilityHit(u); });
+        this.wrath = sim.addZone("ira", o, o.pos, 9, 5);
+        this.wrath.power = this.power;
+        this.jetTimer = 0.3; this.jetDir = o.facing;
+        this.gain(30);
+        sim.emit("wrath", { src: o.id, pos: o.pos });
+        return true;
+      }
+    }
+    return false;
+  }
+  tick() {
+    const o = this.owner, sim = this.sim;
+    this.sinceGain += DT;
+    if (this.sinceGain > 3) this.heat = Math.max(0, this.heat - 10 * DT);
+    if (this.toFire > 0) {
+      this.flameTimer -= DT;
+      if (this.flameTimer <= 0) {
+        this.flameTimer = 0.12;
+        this.flames.push({ origin: o.pos, dir: this.flameDir, pos: o.pos, traveled: 0, phase: this.toFire % 2 === 0 ? 0 : Math.PI, alive: true, hot: this.isHot });
+        this.toFire--;
+      }
+    }
+    for (let i = this.flames.length - 1; i >= 0; i--) {
+      const f = this.flames[i];
+      if (!f.alive) { this.flames.splice(i, 1); continue; }
+      f.traveled += 15 * DT;
+      const lateral = Math.sin(f.traveled * 0.9 + f.phase) * 1.4;
+      f.pos = f.origin.add(f.dir.mul(f.traveled)).add(f.dir.perp.mul(lateral));
+      if (f.traveled >= 12 || sim.map.blocked(f.pos, 0.1)) { f.alive = false; continue; }
+      const hit = sim.hostiles(o.team).find((u) => u.targetable && V.dist(u.pos, f.pos) <= u.radius + 0.5);
+      if (!hit) continue;
+      sim.damage(o, hit, 40);
+      if (hit.alive) this.abilityHit(hit);
+      sim.emit("projectileHit", { src: o.id, tgt: hit.id, pos: f.pos });
+      f.alive = false;
+    }
+    if (this.isDashing) {
+      this.dashT -= DT;
+      o.forcedVel = this.dashDir.mul(7 / 0.4); o.forcedTime = DT * 1.01;
+      this.stepAcc += (7 / 0.4) * DT;
+      if (this.stepAcc >= 1.2) {
+        this.stepAcc = 0;
+        const z = sim.addZone("pegada", o, o.pos, 2, 1.5);
+        z.power = this.power;
+        z.angle = Math.atan2(this.dashDir.x, this.dashDir.y);
+      }
+    }
+    if (this.wrathActive) {
+      this.jetDir = o.facing;
+      this.jetTimer -= DT;
+      if (this.jetTimer <= 0) {
+        this.jetTimer = 0.5;
+        const a = this.wrath.pos, b = a.add(this.jetDir.mul(this.wrath.radius));
+        sim.eachEnemy(V.lerp(a, b, 0.5), this.wrath.radius * 0.6, o.team, (u) => {
+          if (V.distToSegment(u.pos, a, b) > 1.5 + u.radius) return;
+          sim.damage(o, u, 35 * this.wrath.power);
+          this.abilityHit(u);
+        });
+        sim.emit("jet", { src: o.id, pos: a });
+      }
+    } else this.wrath = null;
+  }
+  onDeath() { this.heat = 0; this.flames = []; this.toFire = 0; this.dashT = 0; this.wrath = null; }
+  botUse(ctx) {
+    const t = ctx.target;
+    if (this.wrathActive && t) { ctx.moveTowards(t.pos); return; }
+    if (!t) return;
+    const d = ctx.dist;
+    if (ctx.ready(4) && d < 5.5 && this.isHot && ctx.chance(0.2)) { ctx.use(4, t.pos); return; }
+    if (ctx.ready(1) && d < 10 && ctx.chance(0.5)) { ctx.use(1, t.pos); return; }
+    if (ctx.ready(3) && d < 7 && ctx.chance(0.25)) { ctx.use(3, t.pos); return; }
+    if (ctx.ready(2) && d > 3 && d < 8 && ctx.chance(0.35)) ctx.use(2, t.pos);
+  }
+}
+
+/* ---------- Dados das entidades ---------- */
+const ab = (name, cd, cost, range, area, shape, cone, desc) => ({ name, cd, cost, range, area, shape, cone, desc });
+const CHARS = {
+  saci: {
+    name: "Saci-Pererê", role: "Mobilidade e confusão", color: "#c8331f",
+    lore: "Vive nos redemoinhos das estradas de terra, de carapuça vermelha e uma perna só. Engana com ilusões e nunca está onde parece.",
+    passive: ["Travessura", "Cada mudança brusca de direção acumula Travessura (até 4): +7% de velocidade e 4% de redução de dano por acúmulo, por 2 s."],
+    kit: () => new SaciKit(),
+    stats: () => ({ maxHp: 580, speed: 6.4, radius: 0.45, basicDamage: 44, basicRange: 2.2, basicArc: 100, basicInterval: 0.55, regen: 6, abilities: [
+      ab("Pulo-Chute", 0.55, 0, 2.2, 0, "cone", 100, "Chute giratório com a única perna."),
+      ab("Redemoinho", 9, 25, 0, 1.2, "circle", 0, "Vira um redemoinho por 1,8 s: +75% de velocidade, atravessa inimigos (70 de dano e empurrão) e deixa uma âncora de redemoinho no fim."),
+      ab("Troca-Troca", 12, 20, 9, 0.6, "line", 0, "Cria uma ilusão que corre na direção mirada. Após 1,4 s (ou ao apertar de novo) o Saci troca de lugar com ela."),
+      ab("Vento Travesso", 10, 30, 9, 0, "cone", 70, "Rajada em cone: 35 de dano, empurra 4 m e aplica Ventania (o vento arrasta o movimento do alvo por 2 s)."),
+      ab("Reino dos Redemoinhos", 70, 0, 8, 10, "area", 0, "Área de vento (10 m, 7 s) com 4 redemoinhos; inimigos ficam 25% mais lentos. Aperte R de novo para saltar ao redemoinho mais perto da mira (80 de dano ao chegar)."),
+    ] }),
+  },
+  boitata: {
+    name: "Boitatá", role: "Dano em área e controle", color: "#ff7a1a",
+    lore: "Mbaê-tatá, a cobra de fogo que protege os campos de quem os incendeia. Corpo de escamas luminosas e olhos que ofuscam.",
+    passive: ["Chama Vigilante", "Mover-se gera Calor (até 100); parado, esfria. Calor aumenta o dano em até 20%. Acima de 60 o corpo inteiro queima quem encosta. O corpo é segmentado e bloqueia inimigos."],
+    kit: () => new BoitataKit(),
+    stats: () => ({ maxHp: 640, speed: 5.6, radius: 0.8, basicDamage: 46, basicRange: 2.8, basicArc: 80, basicInterval: 0.85, regen: 5, abilities: [
+      ab("Bote Incandescente", 0.85, 0, 2.8, 0, "cone", 80, "Bote rápido com presas de brasa."),
+      ab("Investida Flamejante", 8, 25, 9, 1.6, "line", 0, "Avança 9 m em linha serpenteante: 70 de dano (mais com Calor) e arremesso. +20 de Calor."),
+      ab("Olhar Incandescente", 13, 30, 8, 0, "cone", 60, "Onda de luz em cone: 25 de dano, Ofusca por 2,2 s (ataques básicos falham) e 30% de lentidão."),
+      ab("Rastro de Fogo", 14, 30, 0, 1.3, "none", 0, "Por 4 s a cauda deixa uma trilha de fogo (24 de dano por segundo). +15% de velocidade. Quem salta não é atingido."),
+      ab("Serpente do Incêndio Celestial", 80, 0, 0, 5, "circle", 0, "Forma gigante por 6 s: corpo maior e mais longo, +35% de velocidade, Imparável, Calor máximo e onda de fogo a cada 0,8 s (42 de dano, 5 m)."),
+    ] }),
+  },
+  curupira: {
+    name: "Curupira", role: "Fogo, mobilidade e território", color: "#ff3b12",
+    lore: "Guardião da mata de pés virados para trás e cabelos que ardem. Quem segue suas pegadas anda para longe dele — e aqui elas explodem.",
+    passive: ["Combustão Natural · Domínio Térmico", "Acertos geram Calor (básico +12, habilidades +6). Sem acertar por 3 s, esfria. Com Calor ≥ 60 tudo incendeia o alvo e ele fica 10% mais rápido. O Calor aumenta chamas, raio do círculo e dano das pegadas e da Suprema."],
+    kit: () => new CurupiraKit(),
+    stats: () => ({ maxHp: 600, speed: 6.2, radius: 0.5, basicDamage: 42, basicRange: 2.4, basicArc: 90, basicInterval: 0.65, regen: 5.5, abilities: [
+      ab("Golpe em Brasa", 0.65, 0, 2.4, 0, "cone", 90, "Golpe com o punho em brasa. +12 de Calor por acerto."),
+      ab("Chamas Invertidas", 7, 25, 12, 0.8, "line", 0, "Sequência de chamas em trajetória sinuosa: 3 chamas, +1 a cada 33 de Calor. 40 de dano cada."),
+      ab("Passos Incandescentes", 9, 20, 7, 1, "line", 0, "Avança 7 m deixando pegadas de fogo viradas para trás que explodem após 1,5 s (50 de dano em 2 m, mais com Calor)."),
+      ab("Fogo Guardião", 15, 35, 8, 4.5, "area", 0, "Círculo de chamas por 5 s (4,5 a 6 m). Inimigos que cruzam a borda queimam e são empurrados para fora."),
+      ab("Ira do Curupira", 75, 0, 0, 7, "circle", 0, "Explosão de fogo (120 de dano em 7 m, até +50% com Calor). A região arde por 5 s e a cada 0,5 s uma labareda dispara para onde você mira."),
+    ] }),
+  },
+};
+
+/* ---------- Boneco de treino ---------- */
+class DummyKit extends Kit { get canBasic() { return false; } }
+class TrainingDummy {
+  constructor(sim, pos) {
+    this.sim = sim; this.home = pos; this.total = 0; this.last = 0; this.dps = 0; this.moving = false;
+    this.win = 0; this.winT = 0; this.sinceHit = 999; this.clock = 0;
+    const u = sim.addChampion(1, "saci", "Boneco de treino", false);
+    u.kit = new DummyKit(); u.kit.bind(sim, u);
+    u.maxHp = u.hp = 3000; u.radius = 0.6; u.pos = pos; u.facing = new V(-1, 0); u.isDummy = true;
+    this.unit = u;
+  }
+  afterStep() {
+    const u = this.unit;
+    for (const e of this.sim.events) {
+      if (e.type !== "damage" || e.tgt !== u.id) continue;
+      this.total += e.value; this.win += e.value;
+      if (e.value >= 1) this.last = e.value;
+      this.sinceHit = 0;
+    }
+    this.sinceHit += DT; this.winT += DT;
+    if (this.winT >= 1) { this.dps = this.win / this.winT; this.win = 0; this.winT = 0; }
+    if (!u.alive || u.hp < 1) { u.alive = true; u.hp = u.maxHp; u.respawn = 0; u.pos = this.home; }
+    if (this.sinceHit > 4 && u.hp < u.maxHp) u.hp = u.maxHp;
+    let move = new V();
+    if (this.moving) { this.clock += DT; move = new V(0, Math.sin(this.clock * 0.8) >= 0 ? 1 : -1); }
+    else if (V.dist(u.pos, this.home) > 0.3 && u.forcedTime <= 0 && this.sinceHit > 2) move = this.home.sub(u.pos).norm;
+    this.sim.setCommand(u.id, { move, aim: u.pos.sub(new V(1, 0)), attack: false, sprint: false, pressed: 0 });
+  }
+  reset() { const u = this.unit; this.total = 0; this.last = 0; this.dps = 0; u.hp = u.maxHp; u.status.clear(); u.pos = this.home; }
+}
+
+/* ---------- Aliado bot (usa a mesma lógica de habilidades dos bots da partida) ---------- */
+class AllyBot {
+  constructor(sim, self) { this.sim = sim; this.self = self; this.timer = 0; this.cmd = Object.assign({}, EMPTY_CMD); this.override = null; this.target = null; }
+  think() {
+    const me = this.self, sim = this.sim;
+    this.timer -= DT;
+    if (this.timer <= 0) {
+      this.timer = 0.3;
+      this.override = null;
+      const foes = sim.hostiles(me.team);
+      let best = null, bd = Infinity;
+      for (const f of foes) { const d = V.dist(f.pos, me.pos); if (d < bd) { bd = d; best = f; } }
+      this.target = best;
+      const cmd = { move: new V(), aim: best ? best.pos : me.pos.add(me.facing.mul(3)), attack: false, sprint: false, pressed: 0 };
+      const self = this;
+      const ctx = {
+        sim, self: me, target: best, dist: best ? bd : 0, used: false,
+        ready(slot) { return !this.used && sim.canCast(me, slot); },
+        use(slot, aim) { if (this.used) return; this.used = true; cmd.pressed |= SLOT_BTN[slot]; cmd.aim = aim; },
+        chance(p) { return Math.random() < p; },
+        moveTowards(p) { const d = p.sub(me.pos); self.override = d.sqr > 0.01 ? d.norm : new V(); },
+        strafe(p, bias) { const to = p.sub(me.pos).norm; self.override = to.perp.add(to.mul(bias)).norm; },
+      };
+      me.kit.botUse(ctx);
+      this.cmd = cmd;
+    } else this.cmd = Object.assign({}, this.cmd, { pressed: 0 });
+    const t = this.target;
+    if (t && t.alive) {
+      const reach = me.stats.basicRange * me.kit.radiusMult + t.radius;
+      const d = V.dist(t.pos, me.pos);
+      if (!this.cmd.pressed) this.cmd.aim = t.pos;
+      this.cmd.attack = d <= reach;
+      if (this.override) this.cmd.move = this.override;
+      else {
+        const keep = t.pos.add(me.pos.sub(t.pos).norm.mul(me.stats.basicRange * 0.7));
+        const to = keep.sub(me.pos);
+        this.cmd.move = to.len > 0.4 ? to.norm : new V();
+      }
+    }
+    return this.cmd;
+  }
+}
