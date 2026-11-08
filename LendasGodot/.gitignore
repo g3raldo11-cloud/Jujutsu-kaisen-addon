@@ -1,0 +1,4 @@
+# Cache do Godot 4 (gerado ao abrir o projeto)
+.godot/
+*.translation
+export_presets.cfg
