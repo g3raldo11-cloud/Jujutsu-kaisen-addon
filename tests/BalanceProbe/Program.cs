@@ -21,6 +21,9 @@ for (int s = 0; s < n; s++)
                 "boitata" => CharacterId.Boitata,
                 "sacivsboi" => t == 0 ? CharacterId.SaciPerere : CharacterId.Boitata,
                 "boivssaci" => t == 0 ? CharacterId.Boitata : CharacterId.SaciPerere,
+                "tri" => (CharacterId)(i % 3),
+                "curvsboi" => t == 0 ? CharacterId.Curupira : CharacterId.Boitata,
+                "curvssaci" => t == 0 ? CharacterId.Curupira : CharacterId.SaciPerere,
                 _ => i % 2 == 0 ? CharacterId.SaciPerere : CharacterId.Boitata, // espelhado: 3 Saci + 2 Boitatá em cada lado
             };
             sim.AddChampion((Team)t, id, $"b{t}{i}", true);

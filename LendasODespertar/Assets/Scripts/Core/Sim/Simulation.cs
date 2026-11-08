@@ -544,6 +544,40 @@ namespace Lendas.Core
                     case ZoneKind.ReinoDosRedemoinhos:
                         ForEachEnemyInRadius(z.Position, z.Radius, z.Team, u => ApplyStatus(u, StatusType.Lentidao, 0.3f, 0.25f, owner));
                         break;
+                    case ZoneKind.PegadaIncandescente:
+                        // Pegada de fogo: explode quando o tempo acaba.
+                        if (z.Remaining <= 0f)
+                        {
+                            float dmg = 50f * z.Power;
+                            ForEachEnemyInRadius(z.Position, z.Radius, z.Team, u =>
+                            {
+                                if (u.Airborne) return;
+                                DealDamage(owner, u, dmg);
+                                if (z.Power >= CurupiraKit.HotPower) ApplyStatus(u, StatusType.Queimadura, 2f, 20f, owner);
+                            });
+                            Emit(SimEventType.ZoneExploded, z.OwnerId, z.Id, z.Position, z.Radius, null, z.Team);
+                        }
+                        break;
+                    case ZoneKind.CirculoDeFogo:
+                        // Anel de chamas: quem cruza a borda queima e é empurrado para fora.
+                        ForEachEnemyInRadius(z.Position, z.Radius + 1f, z.Team, u =>
+                        {
+                            float d = Vec2.Distance(u.Position, z.Position);
+                            if (MathF.Abs(d - z.Radius) > 0.9f) return;
+                            DealDamage(owner, u, 40f * z.Power * dt);
+                            if (!u.Status.Has(StatusType.Imparavel))
+                            {
+                                Vec2 outDir = d > 0.01f ? (u.Position - z.Position) / d : Vec2.Right;
+                                u.Position = ResolveObstacles(z.Position + outDir * (z.Radius + 1f), u.Radius);
+                            }
+                        });
+                        break;
+                    case ZoneKind.IraDoCurupira:
+                        ForEachEnemyInRadius(z.Position, z.Radius, z.Team, u =>
+                        {
+                            if (!u.Airborne) DealDamage(owner, u, 20f * dt);
+                        });
+                        break;
                     case ZoneKind.TempestadeDeBrasas:
                         ForEachEnemyInRadius(z.Position, z.Radius, z.Team, u =>
                         {

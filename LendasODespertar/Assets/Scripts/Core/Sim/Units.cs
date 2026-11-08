@@ -119,6 +119,8 @@ namespace Lendas.Core
         public float TickTimer;
         /// <summary>Se ≥ 0 a zona acompanha esta unidade.</summary>
         public int FollowId = -1;
+        /// <summary>Intensidade definida por quem criou a zona (ex.: Calor do Curupira no momento do lançamento).</summary>
+        public float Power = 1f;
         public bool Expired => Remaining <= 0f;
     }
 

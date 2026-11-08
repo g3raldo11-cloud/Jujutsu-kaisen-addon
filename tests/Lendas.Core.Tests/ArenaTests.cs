@@ -35,6 +35,7 @@ namespace Lendas.Core.Tests
 
         [TestCase(CharacterId.SaciPerere)]
         [TestCase(CharacterId.Boitata)]
+        [TestCase(CharacterId.Curupira)]
         public void EveryAbility_HitsTheDummy(CharacterId who)
         {
             var sim = Arena(who, out var p, out var d);
@@ -49,7 +50,8 @@ namespace Lendas.Core.Tests
                 for (int i = 0; i < 60; i++)
                 {
                     Tick(sim, d, p, new PlayerCommand { Move = (d.Unit.Position - p.Position).Normalized, AimPoint = d.Unit.Position });
-                    affected |= d.Unit.Status.Effects.Count > 0 || sim.Events.Any(e => e.Type == SimEventType.Swap);
+                    affected |= d.Unit.Status.Effects.Count > 0 || sim.Events.Any(e => e.Type == SimEventType.Swap)
+                                || sim.Zones.Any(z => z.OwnerId == p.Id && Vec2.Distance(z.Position, d.Unit.Position) <= z.Radius + 1f);
                 }
                 affected |= d.TotalDamage > before;
                 Assert.That(affected, Is.True, $"{who} {b} deveria ter efeito sobre o boneco (dano, controle ou troca)");

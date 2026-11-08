@@ -74,6 +74,8 @@ namespace Lendas.Core
         SpiritSpawned,
         SpiritDefeated,
         Interrupted,
+        ZoneExploded,
+        ProjectileHit,
     }
 
     /// <summary>Evento emitido pela simulação para a apresentação (efeitos, sons, interface, rede).</summary>

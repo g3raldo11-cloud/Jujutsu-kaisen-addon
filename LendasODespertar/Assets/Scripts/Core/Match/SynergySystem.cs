@@ -29,13 +29,13 @@ namespace Lendas.Core
         public static readonly SynergyRule TempestadeDeBrasas = new SynergyRule
         {
             Id = "tempestade_de_brasas", Name = "Tempestade de Brasas", A = CharacterId.SaciPerere, B = CharacterId.Boitata, Cooldown = 25f,
-            Description = "O Redemoinho do Saci atravessa o Rastro de Fogo do Boitatá e vira um tornado de brasas que segue o Saci, queima e puxa inimigos.",
+            Description = "O Redemoinho do Saci atravessa fogo aliado (Rastro de Fogo do Boitatá ou chamas do Curupira) e vira um tornado de brasas que segue o Saci, queima e puxa inimigos.",
         };
 
         public static readonly SynergyRule BrasaAoVento = new SynergyRule
         {
             Id = "brasa_ao_vento", Name = "Brasa ao Vento", A = CharacterId.SaciPerere, B = CharacterId.Boitata, Cooldown = 18f,
-            Description = "O Vento Travesso soprado através de chamas do Boitatá espalha brasas: todos os atingidos queimam.",
+            Description = "O Vento Travesso soprado através de chamas aliadas (Boitatá ou Curupira) espalha brasas: todos os atingidos queimam.",
         };
 
         public static IEnumerable<SynergyRule> All
@@ -74,7 +74,7 @@ namespace Lendas.Core
             foreach (var z in _sim.Zones)
             {
                 if (z.Team != team || z.OwnerId == excludeOwner) continue;
-                if (z.Kind != ZoneKind.RastroDeFogo) continue;
+                if (z.Kind != ZoneKind.RastroDeFogo && z.Kind != ZoneKind.CirculoDeFogo && z.Kind != ZoneKind.IraDoCurupira) continue;
                 if (Vec2.Distance(z.Position, center) <= z.Radius + radius) return z;
             }
             return null;

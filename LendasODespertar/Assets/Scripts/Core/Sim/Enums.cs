@@ -13,6 +13,7 @@ namespace Lendas.Core
     {
         SaciPerere,
         Boitata,
+        Curupira,
     }
 
     public enum StatusType
@@ -43,6 +44,9 @@ namespace Lendas.Core
         ReinoDosRedemoinhos,
         RedemoinhoAncora,
         TempestadeDeBrasas,
+        PegadaIncandescente,
+        CirculoDeFogo,
+        IraDoCurupira,
     }
 
     public enum TerrainKind { Solo, Agua, Vegetacao }

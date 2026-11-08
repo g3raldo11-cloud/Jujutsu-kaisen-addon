@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Verificação de compilação dos scripts Unity sem o Editor (CI / ambientes sem licença).
+    Rode antes: ../fetch-unity-refs.sh  — depois: dotnet build
+    Compila o núcleo, os scripts de jogo (UnityEngine) e os de Editor (UnityEditor).
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>UNITY_EDITOR;ENABLE_LEGACY_INPUT_MANAGER</DefineConstants>
+    <NoWarn>CS0649;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../LendasODespertar/Assets/Scripts/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="../UnityRefs/engine/lib/netstandard2.0/*.dll" Private="false" />
+    <Reference Include="../UnityRefs/editor/lib/UnityEditor.dll" Private="false" />
+  </ItemGroup>
+</Project>
