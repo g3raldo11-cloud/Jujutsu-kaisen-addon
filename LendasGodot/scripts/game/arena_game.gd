@@ -249,15 +249,21 @@ func _sync_views(dt: float) -> void:
 func _process_events() -> void:
     for e in sim.events:
         var pos := LMath.to_world(e["pos"], 1.0)
+        var ground := LMath.to_world(e["pos"], 0.05)
         match e["type"]:
             "damage":
                 if _views.has(e["tgt"]):
                     _views[e["tgt"]].on_hit()
                 var v := float(e["value"])
                 if v >= 3.0:
+                    var src := sim.champion(e["src"])
+                    var fiery := src != null and src.char_id != "saci"
+                    var col := Color(1.0, 0.6, 0.15) if fiery else Color(0.95, 0.88, 0.7)
                     _floater(pos + Vector3(0, 1.2, 0), str(roundi(v)), Color(1.0, 0.85, 0.3) if e["src"] == player.id else Color(1.0, 0.55, 0.45))
-                    LFx.burst(_fx_root, pos, Color(1.0, 0.75, 0.4), 10, 3.0, 0.35)
+                    LFx.impact(_fx_root, pos + Vector3(0, 0.3, 0), col, clampf(v / 45.0, 0.6, 1.8), fiery)
                     sfx.play("impacto", pos, 0.5, randf_range(0.9, 1.1))
+                    if e["src"] == player.id and v >= 60.0:
+                        cam.add_shake(0.12)
                 else:
                     _accumulate_tick(v, pos)
             "basic":
@@ -270,34 +276,100 @@ func _process_events() -> void:
             "cast":
                 add_log("%s: %s" % [_name_of(e["src"]), e["text"]])
                 _play_ability_sound(e, pos)
+                _cast_effect(e, pos, ground)
             "recast":
                 add_log("%s: %s (reativação)" % [_name_of(e["src"]), e["text"]])
             "swap":
-                LFx.burst(_fx_root, pos, Color(0.85, 0.72, 0.5), 30, 5.0, 0.45)
+                LFx.dust_puff(_fx_root, ground, 1.2, true)
+                var decoy := sim.unit(e["tgt"])
+                if decoy != null:
+                    LFx.dust_puff(_fx_root, LMath.to_world(decoy.pos, 0.05), 1.0, true)
+                LFx.flash(_fx_root, pos, Color(0.95, 0.9, 0.75), 1.4, 0.2)
                 sfx.play("troca", pos)
             "blink":
-                LFx.burst(_fx_root, pos, Color(0.9, 0.95, 1.0), 40, 7.0, 0.5)
+                LFx.dust_puff(_fx_root, ground, 1.6, true)
+                LFx.shock_ring(_fx_root, ground, 3.0, Color(0.85, 0.92, 1.0), 0.35)
+                LFx.flash(_fx_root, pos, Color(0.9, 0.95, 1.0), 2.0, 0.22)
+                cam.add_shake(0.15)
                 sfx.play("vento", pos, 1.0, 1.4)
             "dodge":
+                LFx.dust_puff(_fx_root, ground, 0.8)
                 sfx.play("esquiva", pos)
             "jump":
+                LFx.dust_puff(_fx_root, ground, 0.6)
                 sfx.play("salto", pos)
             "explode":
-                LFx.burst(_fx_root, pos, Color(1.0, 0.55, 0.1), 35, 8.0, 0.7)
+                LFx.explosion(_fx_root, ground, 2.0)
+                cam.add_shake(0.18)
                 sfx.play("explosao", pos, 0.9, 0.8)
             "wave":
-                LFx.burst(_fx_root, pos, Color(1.0, 0.75, 0.3), 40, 9.0, 0.6)
+                LFx.shock_ring(_fx_root, ground, 5.0, Color(1.0, 0.55, 0.12), 0.5)
+                LFx.explosion(_fx_root, ground, 1.5)
+                cam.add_shake(0.1)
             "wrath":
-                LFx.burst(_fx_root, pos, Color(1.0, 0.55, 0.15), 70, 12.0, 0.9)
+                LFx.explosion(_fx_root, ground, 7.0, Color(1.0, 0.45, 0.08))
+                cam.add_shake(0.7)
                 sfx.play("suprema", pos)
             "jet":
+                cam.add_shake(0.06)
                 sfx.play("fogo", pos, 0.7, 1.3)
+            "projectile_hit":
+                LFx.explosion(_fx_root, LMath.to_world(e["pos"], 0.9), 0.6)
             "synergy":
                 add_log("★ RESSONÂNCIA: %s!" % e["text"])
                 _floater(pos + Vector3(0, 2.0, 0), String(e["text"]), Color(1.0, 0.9, 0.4), 72)
+                LFx.flash(_fx_root, pos + Vector3(0, 0.5, 0), Color(1.0, 0.8, 0.35), 4.0, 0.35)
+                LFx.shock_ring(_fx_root, ground, 4.0, Color(1.0, 0.75, 0.3), 0.6)
+                cam.add_shake(0.35)
                 sfx.play("sinergia", pos)
             "decoy_broken":
-                LFx.burst(_fx_root, pos, Color(0.7, 0.6, 0.45), 25, 4.0, 0.4)
+                LFx.dust_puff(_fx_root, ground, 1.0, true)
+
+## Efeito de lançamento de cada habilidade.
+func _cast_effect(e: Dictionary, pos: Vector3, ground: Vector3) -> void:
+    var c := sim.champion(e["src"])
+    if c == null:
+        return
+    var slot: int = e["slot"]
+    var dir := Vector3(c.facing.x, 0.0, c.facing.y)
+    match c.char_id:
+        "saci":
+            match slot:
+                1:
+                    LFx.dust_puff(_fx_root, ground, 1.3, true)
+                2:
+                    LFx.dust_puff(_fx_root, ground, 1.0, true)
+                3:
+                    LFx.wind_gust(_fx_root, pos + Vector3(0, -0.2, 0), dir, 9.0, 70.0)
+                    cam.add_shake(0.08)
+                4:
+                    LFx.shock_ring(_fx_root, ground, 10.0, Color(0.85, 0.92, 1.0), 0.6)
+                    LFx.flash(_fx_root, pos, Color(0.9, 0.95, 1.0), 3.0, 0.3)
+                    cam.add_shake(0.3)
+        "boitata":
+            match slot:
+                1:
+                    LFx.explosion(_fx_root, ground, 1.0)
+                    cam.add_shake(0.15)
+                2:
+                    LFx.light_cone(_fx_root, pos + dir * 0.6 + Vector3(0, 0.1, 0), dir, 8.0, 60.0, Color(1.0, 0.9, 0.55))
+                    cam.add_shake(0.06)
+                3:
+                    LFx.flash(_fx_root, pos, Color(1.0, 0.5, 0.1), 2.0, 0.25)
+                4:
+                    LFx.explosion(_fx_root, ground, 4.0, Color(1.0, 0.6, 0.15))
+                    cam.add_shake(0.6)
+        "curupira":
+            match slot:
+                1:
+                    LFx.flash(_fx_root, pos + dir * 0.6 + Vector3(0, 0.2, 0), Color(1.0, 0.6, 0.15), 1.4, 0.18)
+                2:
+                    LFx.explosion(_fx_root, ground, 0.8)
+                3:
+                    LFx.flash(_fx_root, pos, Color(1.0, 0.5, 0.1), 1.6, 0.2)
+                    cam.add_shake(0.08)
+                4:
+                    pass  # a explosão sai no evento "wrath"
 
 ## Dano contínuo (queimaduras, zonas) é somado e exibido a cada 0,5 s.
 func _accumulate_tick(v: float, pos: Vector3) -> void:
@@ -380,10 +452,25 @@ func _autotest_frame(delta: float) -> Array:
                     _shot("%s_suprema" % player_char)
         if _auto_t >= 2.6 and _auto_t - delta < 2.6:
             _shot("%s_habilidades" % player_char)
-        if phase == 0 and _auto_t >= 0.3 and _auto_t - delta < 0.3:
+        # retrato: câmera de frente e perto, sem interface
+        if _auto_t >= 0.2 and _auto_t - delta < 0.2:
+            hud.visible = false
+            cam.distance = 3.0 if player_char != "boitata" else 4.2
+            cam.pitch = deg_to_rad(8.0)
+            cam.yaw = -PI * 0.5
+            cam.height = 0.9 if player_char == "saci" else 1.25
+        if _auto_t >= 0.45 and _auto_t - delta < 0.45:
+            _shot("%s_retrato" % player_char)
+        if _auto_t >= 0.6 and _auto_t - delta < 0.6:
+            hud.visible = true
+            cam.distance = 7.0
+            cam.pitch = deg_to_rad(35.0)
+            cam.yaw = PI * 0.5
+            cam.height = 1.2
+        if phase == 0 and _auto_t >= 0.7 and _auto_t - delta < 0.7:
             hud.set_help_visible(true)
             _shot("ajuda")
-        if phase == 0 and _auto_t >= 0.9 and _auto_t - delta < 0.9:
+        if phase == 0 and _auto_t >= 1.2 and _auto_t - delta < 1.2:
             hud.set_help_visible(false)
         if _auto_t > 6.5:
             _auto_report.append("RESULTADO %s: dano no boneco = %d" % [player_char, int(dummy.total)])

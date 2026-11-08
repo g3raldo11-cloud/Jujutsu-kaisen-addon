@@ -12,6 +12,7 @@ var min_distance := 4.0
 var max_distance := 18.0
 var sensitivity := 0.0035
 var height := 1.2
+var _shake := 0.0
 
 func _ready() -> void:
     camera = Camera3D.new()
@@ -42,6 +43,14 @@ func _process(delta: float) -> void:
     var dir := Vector3(cos(pitch) * sin(yaw), -sin(pitch), cos(pitch) * cos(yaw))
     camera.global_position = focus - dir * distance
     camera.look_at(focus, Vector3.UP)
+    if _shake > 0.001:
+        var t := Time.get_ticks_msec() / 1000.0
+        camera.global_position += Vector3(sin(t * 61.0), sin(t * 47.0 + 1.3), cos(t * 53.0)) * _shake * 0.35
+        _shake = maxf(0.0, _shake - delta * 2.5)
+
+## Tremor de câmera (explosões, Supremas, golpes pesados).
+func add_shake(amount: float) -> void:
+    _shake = clampf(_shake + amount, 0.0, 1.2)
 
 func flat_forward() -> Vector3:
     return Vector3(sin(yaw), 0.0, cos(yaw))

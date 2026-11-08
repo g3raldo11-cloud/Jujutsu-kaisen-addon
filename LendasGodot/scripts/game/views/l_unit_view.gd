@@ -24,6 +24,7 @@ func bind(u: LUnit) -> void:
     model.name = "Modelo"
     add_child(model)
     _build()
+    _try_imported_model()
     _build_status_fx()
     position = LMath.to_world(u.pos)
     rotation.y = LMath.facing_yaw(u.facing)
@@ -31,12 +32,37 @@ func bind(u: LUnit) -> void:
 func _build() -> void:
     pass
 
+## Identificador usado para procurar um modelo feito por artista (res://assets/models/<id>.glb).
+func model_id() -> String:
+    return ""
+
+var imported_model: Node3D
+
+## Se existir um modelo importado (.glb exportado do Blender, por exemplo), ele substitui o
+## modelo procedural; a simulação e as animações de posição continuam iguais.
+func _try_imported_model() -> void:
+    var id := model_id()
+    if id == "":
+        return
+    var path := "res://assets/models/%s.glb" % id
+    if not ResourceLoader.exists(path):
+        return
+    var scene := load(path) as PackedScene
+    if scene == null:
+        return
+    for c in model.get_children():
+        if c is Node3D:
+            (c as Node3D).visible = false
+    imported_model = scene.instantiate() as Node3D
+    if imported_model != null:
+        model.add_child(imported_model)
+
 func _build_status_fx() -> void:
     _burn = LFx.fire(self, 0.35, 24)
     _burn.position = Vector3(0, 0.8, 0)
-    _burn.emitting = false
+    LFx.set_rate(_burn, 0.0)
     _wind = LFx.swirl(self, 0.6, 1.2, Color(0.85, 0.95, 1.0, 0.8), 40)
-    _wind.emitting = false
+    LFx.set_rate(_wind, 0.0)
     _slow_ring = LMat.disc(self, 0.9, LMat.transparent(Color(0.3, 0.6, 1.0, 0.35)), 0.03)
     _slow_ring.visible = false
     _blind = LMat.part(self, LMat.sphere(0.3), Vector3(0, head_height(), 0), LMat.glow(Color(1.0, 0.95, 0.6, 0.45)))
@@ -69,8 +95,8 @@ func sync_view(dt: float) -> void:
         position = target  # teleporte (troca, salto entre redemoinhos)
     rotation.y = lerp_angle(rotation.y, LMath.facing_yaw(unit.facing), 1.0 - exp(-dt * 14.0))
     var st := unit.status
-    _burn.emitting = st.has(LStatus.QUEIM)
-    _wind.emitting = st.has(LStatus.VENT)
+    LFx.set_rate(_burn, 1.0 if st.has(LStatus.QUEIM) else 0.0)
+    LFx.set_rate(_wind, 1.0 if st.has(LStatus.VENT) else 0.0)
     _slow_ring.visible = st.has(LStatus.LENT)
     _blind.visible = st.has(LStatus.OFUSC)
     if _blind.visible:
