@@ -26,3 +26,7 @@ tools/UnityRefs/
 *.iml
 .DS_Store
 *.log
+
+# Projeto web (Hero Select)
+node_modules/
+dist/

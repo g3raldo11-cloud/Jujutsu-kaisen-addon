@@ -1,0 +1,18 @@
+{
+  "name": "lendas-do-brasil-hero-select",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Lendas do Brasil – Hero Select: galeria interativa de character design (Saci, Boitatá e Curupira) feita com Three.js.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10"
+  }
+}
