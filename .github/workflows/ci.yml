@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Testes do núcleo de simulação
+        run: dotnet test tests/Lendas.Core.Tests
+      - name: Verificação de compilação dos scripts Unity
+        run: |
+          ./tools/fetch-unity-refs.sh
+          dotnet build tools/UnityCompileCheck

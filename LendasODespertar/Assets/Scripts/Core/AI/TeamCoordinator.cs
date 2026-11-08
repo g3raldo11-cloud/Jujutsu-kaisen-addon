@@ -66,7 +66,7 @@ namespace Lendas.Core
             switch (match.Phase)
             {
                 case MatchPhase.Despertar:
-                    foreach (var b in bots) AssignEchoOrFallback(b, NearestMarcoSpec(b.Self.Position).Position);
+                    foreach (var b in bots) AssignEchoOrFallback(b, NearestMarcoSpec(b.Self.Position)?.Position ?? _sim.Map.HeartPosition);
                     break;
 
                 case MatchPhase.Ressonancia:

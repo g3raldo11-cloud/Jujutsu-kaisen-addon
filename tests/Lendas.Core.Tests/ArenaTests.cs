@@ -67,5 +67,24 @@ namespace Lendas.Core.Tests
             Assert.That(d.Unit.Alive, Is.True);
             Assert.That(d.Unit.Hp, Is.EqualTo(d.Unit.MaxHp));
         }
+    
+        [Test]
+        public void AllyBot_AttacksDummy_AndUsesAbilities()
+        {
+            var sim = Arena(CharacterId.SaciPerere, out var p, out var d);
+            var ally = sim.AddChampion(Team.Aurora, CharacterId.Curupira, "aliado", true);
+            ally.Position = new Vec2(-6f, 4f);
+            int casts = 0;
+            for (int i = 0; i < 30 * 15; i++)
+            {
+                sim.ClearEvents();
+                sim.SetCommand(p.Id, new PlayerCommand { AimPoint = d.Unit.Position });
+                sim.Step();
+                d.AfterStep(Simulation.Dt);
+                casts += sim.Events.Count(e => e.Type == SimEventType.AbilityCast && e.SourceId == ally.Id);
+            }
+            Assert.That(d.TotalDamage, Is.GreaterThan(200f));
+            Assert.That(casts, Is.GreaterThan(2));
+        }
     }
 }

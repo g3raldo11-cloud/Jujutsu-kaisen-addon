@@ -1,0 +1,19 @@
+{
+    "name": "Lendas.Editor",
+    "rootNamespace": "Lendas.EditorTools",
+    "references": [
+        "Lendas.Core",
+        "Lendas.Game"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

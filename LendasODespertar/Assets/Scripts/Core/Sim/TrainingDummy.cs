@@ -22,11 +22,15 @@ namespace Lendas.Core
         private float _sinceHit = 999f;
         private float _moveClock;
 
-        public TrainingDummy(Simulation sim, Vec2 position, CharacterId look = CharacterId.Boitata)
+        public TrainingDummy(Simulation sim, Vec2 position)
         {
             _sim = sim;
             Home = position;
-            Unit = sim.AddChampion(Team.Crepusculo, look, "Boneco de Teste", false);
+            Unit = sim.AddChampion(Team.Crepusculo, CharacterId.SaciPerere, "Boneco de Teste", false);
+            // O boneco não tem passivas nem habilidades: medição de dano limpa.
+            Unit.Kit = new DummyKit();
+            Unit.Kit.Bind(sim, Unit);
+            Unit.Radius = 0.6f;
             Unit.MaxHp = Unit.Hp = 3000f;
             Unit.Position = position;
             Unit.Facing = -Vec2.Right;
@@ -73,6 +77,13 @@ namespace Lendas.Core
                 move = (Home - Unit.Position).Normalized; // volta ao lugar depois de empurrado
             }
             _sim.SetCommand(Unit.Id, new PlayerCommand { Move = move, AimPoint = Unit.Position - Vec2.Right });
+        }
+
+        private sealed class DummyKit : ChampionKit
+        {
+            public override CharacterId Id => CharacterId.SaciPerere;
+            public override bool Cast(AbilitySlot slot, Vec2 aimPoint) => false;
+            public override bool CanBasicAttack => false;
         }
 
         public void ResetStats()
