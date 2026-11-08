@@ -54,9 +54,9 @@ func sync_view(dt: float) -> void:
     var heat01 := kit.heat / LBoitataKit.MAX_HEAT
     var sc := kit.radius_mult()
     # Escamas em brasa: laranja-avermelhado que esquenta para âmbar (sem estourar para branco).
-    var glow_c := Color(1.0, 0.55, 0.12) if kit.giant_form() else Color(0.85, 0.2, 0.03).lerp(Color(1.0, 0.45, 0.08), heat01)
+    var glow_c := Color(1.0, 0.38, 0.06) if kit.giant_form() else Color(0.8, 0.15, 0.02).lerp(Color(1.0, 0.32, 0.05), heat01)
     _scale_mat.emission = glow_c
-    _scale_mat.emission_energy_multiplier = lerpf(0.35, 1.3, heat01) * (1.25 if kit.giant_form() else 1.0)
+    _scale_mat.emission_energy_multiplier = lerpf(0.25, 0.75, heat01) * (1.15 if kit.giant_form() else 1.0)
     _light.light_energy = lerpf(0.8, 3.5, heat01) * (1.6 if kit.giant_form() else 1.0)
     _light.omni_range = 6.0 * sc + heat01 * 4.0
     _head.scale = Vector3.ONE * sc
