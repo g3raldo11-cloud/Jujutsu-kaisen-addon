@@ -52,12 +52,16 @@ def args():
     ap.add_argument('--res', default='1600x900')
     ap.add_argument('--nofx', action='store_true')
     ap.add_argument('--views', default='')
+    ap.add_argument('--faces', type=int, default=110000, help='faces do .glb de jogo (0 = resolução cheia)')
     ap.add_argument('--pose', action='store_true')
     ap.add_argument('--estilo', default='organico', choices=['organico', 'mecanico'])
     return ap.parse_args(argv)
 
 
 def reset_pose(rig):
+    if hasattr(rig, 'reset_pose'):
+        rig.reset_pose()
+        return
     rig.root.location = (0, 0, 0)
     for n in rig.nodes.values():
         n.rotation_mode = 'XYZ'
@@ -65,9 +69,11 @@ def reset_pose(rig):
         n.scale = (1, 1, 1)
 
 
-def export_glb(rig, folder, mod):
+def export_glb(rig, folder, mod, target=None):
     reset_pose(rig)
-    if hasattr(mod, 'prepare_export'):
+    if hasattr(rig, 'prepare_export'):
+        rig.prepare_export(target)
+    elif hasattr(mod, 'prepare_export'):
         mod.prepare_export(rig)
     mats.simplify_for_export([m for m in bpy.data.materials])
     lc = bpy.context.view_layer.layer_collection.children[rig.id]
@@ -116,10 +122,10 @@ def main():
     for hero in heroes:
         mod = table[hero]
 
-        def fresh():
+        def fresh(render=False):
             kit.reset()
             t0 = time.time()
-            rig = mod.build(a.detail)
+            rig = mod.build_render(a.detail) if (render and hasattr(mod, 'build_render')) else mod.build(a.detail)
             st = rig.stats()
             st['seconds'] = round(time.time() - t0, 1)
             report[hero] = st
@@ -129,7 +135,7 @@ def main():
         modes = [m for m in a.render.split(',') if m]
         # cada render parte de uma cena limpa (efeitos e luzes não se acumulam)
         for m in modes:
-            rig = fresh()
+            rig = fresh(render=(m != 'preview'))
             if m == 'preview':
                 if hasattr(mod, 'prepare_preview'):
                     mod.prepare_preview(rig)
@@ -143,7 +149,7 @@ def main():
             if a.save:
                 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(a.save, hero + '.blend'))
             if a.export:
-                p = export_glb(rig, a.export, mod)
+                p = export_glb(rig, a.export, mod, a.faces or None)
                 report[hero]['glb_mb'] = round(os.path.getsize(p) / 1e6, 1)
     with open(os.path.join(a.out, 'stats.json'), 'w') as f:
         json.dump(report, f, indent=2)

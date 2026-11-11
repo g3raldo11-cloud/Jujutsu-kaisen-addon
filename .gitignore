@@ -30,3 +30,7 @@ tools/UnityRefs/
 # Projeto web (Hero Select)
 node_modules/
 dist/
+
+# Python
+__pycache__/
+*.pyc
