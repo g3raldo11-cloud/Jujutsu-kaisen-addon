@@ -37,9 +37,27 @@ func model_id() -> String:
     return ""
 
 var imported_model: Node3D
+var skel: Skeleton3D
+## Ossos do modelo importado dirigidos pelas juntas procedurais (que continuam calculando a
+## animação: passada, soco, inclinação...). Cada item: [osso, junta, base de repouso da junta,
+## posição de repouso da junta, usa_posição].
+var _rig: Array = []
+var _rig_rest_global: Array[Basis] = []
+var _rig_rest_local: Array[Transform3D] = []
+var _rig_mapped := {}
+var _skel_basis := Basis()
 
-## Se existir um modelo importado (.glb exportado do Blender, por exemplo), ele substitui o
-## modelo procedural; a simulação e as animações de posição continuam iguais.
+## Mapa osso do .glb -> junta procedural (sobrescrito por cada personagem).
+func rig_map() -> Dictionary:
+    return {}
+
+## Ossos que também copiam a translação da junta (ex.: o quadril sobe e desce na passada).
+func rig_translate() -> Array:
+    return []
+
+## Se existir um modelo importado (.glb exportado do Blender), ele substitui o modelo
+## procedural: as malhas procedurais somem, mas as juntas continuam animando (agora os ossos do
+## modelo) e os efeitos presos a elas continuam aparecendo.
 func _try_imported_model() -> void:
     var id := model_id()
     if id == "":
@@ -50,12 +68,106 @@ func _try_imported_model() -> void:
     var scene := load(path) as PackedScene
     if scene == null:
         return
-    for c in model.get_children():
-        if c is Node3D:
-            (c as Node3D).visible = false
+    _hide_procedural_meshes(model)
     imported_model = scene.instantiate() as Node3D
-    if imported_model != null:
-        model.add_child(imported_model)
+    if imported_model == null:
+        return
+    model.add_child(imported_model)
+    skel = _find_skeleton(imported_model)
+    if skel != null:
+        _setup_rig()
+    _setup_imported()
+
+func _hide_procedural_meshes(n: Node) -> void:
+    for c in n.get_children():
+        if c == imported_model:
+            continue
+        if c is MeshInstance3D:
+            (c as MeshInstance3D).visible = false
+        _hide_procedural_meshes(c)
+
+static func _find_skeleton(n: Node) -> Skeleton3D:
+    if n is Skeleton3D:
+        return n as Skeleton3D
+    for c in n.get_children():
+        var s := _find_skeleton(c)
+        if s != null:
+            return s
+    return null
+
+## Nó do modelo importado pelo nome (FX_*, malhas).
+func imported_node(node_name: String) -> Node3D:
+    if imported_model == null:
+        return null
+    return imported_model.find_child(node_name, true, false) as Node3D
+
+func _rel_basis(n: Node3D) -> Basis:
+    return (model.global_transform.basis.inverse() * n.global_transform.basis).orthonormalized()
+
+func _setup_rig() -> void:
+    var count := skel.get_bone_count()
+    _rig_rest_global.resize(count)
+    _rig_rest_local.resize(count)
+    for i in range(count):
+        _rig_rest_local[i] = skel.get_bone_rest(i)
+        var p := skel.get_bone_parent(i)
+        _rig_rest_global[i] = (_rig_rest_global[p] if p >= 0 else Basis()) * _rig_rest_local[i].basis
+    # base do esqueleto em relação ao nó "Modelo" (para levar rotações do espaço do modelo ao do esqueleto)
+    _skel_basis = (model.global_transform.basis.inverse() * skel.global_transform.basis).orthonormalized()
+    var tr := rig_translate()
+    var m := rig_map()
+    for bone_name in m.keys():
+        var idx := skel.find_bone(bone_name)
+        var j := m[bone_name] as Node3D
+        if idx < 0 or j == null:
+            continue
+        _rig.append([idx, j, _rel_basis(j), j.position, tr.has(bone_name)])
+        _rig_mapped[idx] = _rig.size() - 1
+
+## Chamado a cada quadro depois da animação procedural: aplica as rotações das juntas nos ossos,
+## dos pais para os filhos, sem depender do cache de poses do Skeleton3D.
+func _drive_rig() -> void:
+    if skel == null or _rig.is_empty():
+        return
+    var count := skel.get_bone_count()
+    var G: Array[Basis] = []
+    G.resize(count)
+    var S := _skel_basis
+    var Si := S.inverse()
+    for i in range(count):
+        var p := skel.get_bone_parent(i)
+        var pg: Basis = G[p] if p >= 0 else Basis()
+        if _rig_mapped.has(i):
+            var e: Array = _rig[_rig_mapped[i]]
+            var j := e[1] as Node3D
+            var delta := _rel_basis(j) * (e[2] as Basis).inverse()
+            var gb: Basis = (Si * delta * S) * _rig_rest_global[i]
+            skel.set_bone_pose_rotation(i, (pg.inverse() * gb).get_rotation_quaternion())
+            if e[4]:
+                skel.set_bone_pose_position(i, _rig_rest_local[i].origin + Si * (j.position - (e[3] as Vector3)))
+            G[i] = gb
+        else:
+            G[i] = pg * skel.get_bone_pose(i).basis
+
+## Ajustes do modelo importado (materiais com shader, efeitos nos FX_*). Sobrescrito pelos heróis.
+func _setup_imported() -> void:
+    pass
+
+## Material próprio (o importador do glTF cria StandardMaterial3D): troca por um shader que lê os
+## dados gravados no mapa UV pelo Blender (brasa nas rachaduras, gradiente das mechas de fogo...).
+func override_material(mat_name: String, make: Callable) -> Array[ShaderMaterial]:
+    var out: Array[ShaderMaterial] = []
+    if imported_model == null:
+        return out
+    for mi in imported_model.find_children("*", "MeshInstance3D", true, false):
+        var m := mi as MeshInstance3D
+        for s in range(m.mesh.get_surface_count()):
+            var mat := m.get_active_material(s)
+            if mat != null and mat.resource_name == mat_name:
+                var sm := make.call(mat) as ShaderMaterial
+                m.set_surface_override_material(s, sm)
+                out.append(sm)
+    return out
 
 func _build_status_fx() -> void:
     _burn = LFx.fire(self, 0.35, 24)
@@ -102,3 +214,5 @@ func sync_view(dt: float) -> void:
     if _blind.visible:
         _blind.scale = Vector3.ONE * (1.0 + sin(anim_time * 10.0) * 0.15)
     visible = unit.alive
+    if skel != null:
+        _drive_rig.call_deferred()

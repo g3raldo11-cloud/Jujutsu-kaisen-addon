@@ -20,7 +20,7 @@ ID = 'boitata'
 HERO_COLOR = (1.0, 0.55, 0.1)
 HEIGHT = 2.2
 UP = np.array((0.0, 0.0, 1.0))
-R_MAX = 0.3
+R_MAX = 0.32
 
 
 def radius_at(t):
@@ -294,7 +294,7 @@ def build(detail=2, voxel=0.004, coiled=False, path=None):
 
     # ---------------- corpo (reto para o jogo; o render passa o caminho enrolado)
     if path is None:
-        path = [np.array((0.0, 0.25 + 0.95 * i, 0.32)) for i in range(10)]
+        path = [np.array((0.0, 0.25 + 0.7 * i, R_MAX * 1.05)) for i in range(10)]
     tube, scales, borda, mancha, frame = body_mesh(path)
     add('corpo', tube, 'ventre', 1)
     add('escamas', scales, 'escama', 0, {'borda': borda, 'mancha': mancha})

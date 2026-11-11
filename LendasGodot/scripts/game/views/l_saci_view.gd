@@ -21,9 +21,10 @@ var _tornado: CPUParticles3D
 var _funnel: LFunnel
 var _spin := 0.0
 var _kick := 0.0
+var _ghost_leg: CPUParticles3D
 
 func head_height() -> float:
-    return 1.45
+    return 1.95 if imported_model != null else 1.45
 
 func model_id() -> String:
     return "saci"
@@ -143,6 +144,26 @@ func _build_arm(shoulder: Node3D, side: float, skin: Material) -> Node3D:
         LMat.part(hand, LMesh.tube([Vector3(x, -0.055, 0.0), Vector3(x, -0.08, 0.008), Vector3(x, -0.1, 0.02)], [0.0085, 0.008, 0.0065], 8, 3), Vector3.ZERO, skin)
     LMat.part(hand, LMesh.tube([Vector3(0.03 * side, -0.02, 0.008), Vector3(0.045 * side, -0.045, 0.022), Vector3(0.05 * side, -0.065, 0.03)], [0.01, 0.009, 0.007], 8, 3), Vector3.ZERO, skin)
     return elbow
+
+func rig_map() -> Dictionary:
+    return {"corpo": _body, "perna": _leg, "braco_l": _arm_l, "braco_r": _arm_r, "antebraco_l": _elbow_l,
+            "antebraco_r": _elbow_r, "cabeca": _head, "gorro": _cap}
+
+func rig_translate() -> Array:
+    return ["corpo"]
+
+## Modelo esculpido no Blender: perna fantasma de vento no lado da perna que falta; o cachimbo
+## agora está na mão (a fumaça sai de lá, não da boca).
+func _setup_imported() -> void:
+    for p in _head.find_children("*", "CPUParticles3D", true, false):
+        (p as CPUParticles3D).emitting = false
+    var leg := imported_node("FX_perna_vento")
+    if leg != null:
+        _ghost_leg = LFx.swirl(leg, 0.07, 0.9, Color(0.75, 0.92, 1.0, 0.7), 60, 9.0)
+        _ghost_leg.position = Vector3(0, -0.5, 0)
+    var pipe := imported_node("FX_cachimbo")
+    if pipe != null:
+        LFx.swirl(pipe, 0.02, 0.6, Color(0.85, 0.85, 0.85, 0.35), 10, 2.0)
 
 func on_basic_attack() -> void:
     _kick = 1.0  # pulo-chute giratório

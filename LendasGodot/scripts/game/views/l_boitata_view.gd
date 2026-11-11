@@ -20,6 +20,11 @@ var _fins: Array[MeshInstance3D] = []
 var _fires: Array[CPUParticles3D] = []
 var _bite := 0.0
 var _charge_fire: CPUParticles3D
+var _last_pts := PackedVector3Array()
+var _chain: Array[int] = []
+var _rest_xf: Array[Transform3D] = []
+var _org_mats: Array[ShaderMaterial] = []
+var _sc := 1.0
 
 func head_height() -> float:
     return 1.5
@@ -108,6 +113,93 @@ func _build() -> void:
         add_child(holder)
         _fires.append(LFx.fire(holder, 0.3, 18, Color(1.0, 0.65, 0.15), Color(1.0, 0.15, 0.02)))
 
+func rig_map() -> Dictionary:
+    return {"cabeca": _head, "mandibula": _jaw}
+
+## Modelo esculpido no Blender: escamas com bordas em brasa (shader) e uma corrente de 28 ossos que
+## segue o corpo simulado a cada quadro (o corpo procedural deixa de ser desenhado).
+func _setup_imported() -> void:
+    _body_mi.visible = false
+    for f in _fins:
+        f.visible = false
+    _org_mats = override_material("boi_escamas", LOrgShaders.scales)
+    for i in range(64):
+        var idx := skel.find_bone("coluna_%02d" % i)
+        if idx < 0:
+            break
+        _chain.append(idx)
+    var n := skel.get_bone_count()
+    _rest_xf.resize(n)
+    for i in range(n):
+        var p := skel.get_bone_parent(i)
+        _rest_xf[i] = (_rest_xf[p] if p >= 0 else Transform3D()) * skel.get_bone_rest(i)
+
+static func _look(dir: Vector3) -> Basis:
+    var up := Vector3.UP if absf(dir.normalized().dot(Vector3.UP)) < 0.98 else Vector3.FORWARD
+    return Basis.looking_at(dir, up)
+
+static func _sample(P: PackedVector3Array, cum: PackedFloat32Array, s: float) -> Vector3:
+    if s <= 0.0:
+        return P[0]
+    for i in range(1, P.size()):
+        if cum[i] >= s:
+            var t := (s - cum[i - 1]) / maxf(1e-6, cum[i] - cum[i - 1])
+            return P[i - 1].lerp(P[i], t)
+    var last := P.size() - 1
+    return P[last] + (P[last] - P[last - 1]).normalized() * (s - cum[last])
+
+func _joint_delta(j: Node3D, rest: Basis) -> Basis:
+    var S := _skel_basis
+    return S.inverse() * (_rel_basis(j) * rest.inverse()) * S
+
+## Corrente de ossos ao longo do corpo simulado (proporcional ao comprimento), depois cabeça e
+## mandíbula com as rotações procedurais (mordida, balanço) por cima.
+func _drive_rig() -> void:
+    if skel == null or _chain.is_empty() or _last_pts.size() < 2:
+        return
+    var inv := skel.global_transform.affine_inverse()
+    var P := PackedVector3Array()
+    for p in _last_pts:
+        P.append(inv * p)
+    var cum := PackedFloat32Array([0.0])
+    for i in range(1, P.size()):
+        cum.append(cum[i - 1] + P[i].distance_to(P[i - 1]))
+    var total := cum[cum.size() - 1]
+    var nb := _chain.size()
+    var PG := Transform3D()
+    var G0 := Transform3D()
+    for k in range(nb):
+        var idx := _chain[k]
+        var a := _sample(P, cum, total * k / nb)
+        var b := _sample(P, cum, total * (k + 1) / nb)
+        var dir := b - a
+        if dir.length_squared() < 1e-8:
+            dir = Vector3.FORWARD
+        var rest := _rest_xf[idx]
+        var nxt := _rest_xf[_chain[k + 1]].origin if k + 1 < nb else rest.origin + (rest.origin - _rest_xf[_chain[k - 1]].origin)
+        var R := _look(dir) * _look(nxt - rest.origin).inverse()
+        var g := Transform3D(R * rest.basis * Basis.from_scale(Vector3.ONE * _sc), a)
+        var local := PG.affine_inverse() * g
+        skel.set_bone_pose_position(idx, local.origin)
+        skel.set_bone_pose_rotation(idx, local.basis.get_rotation_quaternion())
+        skel.set_bone_pose_scale(idx, local.basis.get_scale())
+        PG = g
+        if k == 0:
+            G0 = g
+    var hi := skel.find_bone("cabeca")
+    var ji := skel.find_bone("mandibula")
+    if hi >= 0 and _rig_mapped.has(hi):
+        var eh: Array = _rig[_rig_mapped[hi]]
+        var head_rest := G0 * skel.get_bone_rest(hi)
+        var hb := _joint_delta(eh[1] as Node3D, eh[2] as Basis) * head_rest.basis
+        skel.set_bone_pose_rotation(hi, (G0.basis.inverse() * hb).get_rotation_quaternion())
+        if ji >= 0 and _rig_mapped.has(ji):
+            var ej: Array = _rig[_rig_mapped[ji]]
+            var HG := Transform3D(hb, head_rest.origin)
+            var jaw_rest := HG * skel.get_bone_rest(ji)
+            var jb := _joint_delta(ej[1] as Node3D, ej[2] as Basis) * jaw_rest.basis
+            skel.set_bone_pose_rotation(ji, (hb.inverse() * jb).get_rotation_quaternion())
+
 func on_basic_attack() -> void:
     _bite = 1.0
 
@@ -156,13 +248,20 @@ func sync_view(dt: float) -> void:
         rx.append(r)
         ry.append(r * 0.82)
         cols.append(Color(1, 1, 1))
-    _body_mesh.clear_surfaces()
-    if unit.alive and n >= 2:
-        _body_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, LMesh.sweep_arrays(pts, rx, ry, SIDES, Vector3.UP, cols, 0.0, 6.0, true))
-    _body_mi.visible = unit.alive
+    _last_pts = pts
+    _sc = sc
+    for m in _org_mats:
+        m.set_shader_parameter("heat", heat01)
+    if imported_model == null:
+        _body_mesh.clear_surfaces()
+        if unit.alive and n >= 2:
+            _body_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, LMesh.sweep_arrays(pts, rx, ry, SIDES, Vector3.UP, cols, 0.0, 6.0, true))
+        _body_mi.visible = unit.alive
 
     # barbatanas de fogo ao longo da espinha, orientadas pelo corpo
     for i in range(_fins.size()):
+        if imported_model != null:
+            break
         var f := _fins[i]
         var t := (float(i) + 0.6) / (FINS + 1.0)
         var k := clampi(int(t * (n - 1)), 1, maxi(1, n - 2))

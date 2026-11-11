@@ -28,6 +28,8 @@ var _fibers: Array[Node3D] = []
 var _flames: Array[MeshInstance3D] = []
 var _jet: Node3D
 var _punch := 0.0
+var _org_mats: Array[ShaderMaterial] = []
+var _hand_fire: CPUParticles3D
 
 func head_height() -> float:
     return 2.05
@@ -204,6 +206,23 @@ func _build_arm(shoulder: Node3D, side: float, skin: Material, fiber: Material, 
         [0.012, 0.011, 0.009], 8, 3), Vector3.ZERO, skin)
     return elbow
 
+func rig_map() -> Dictionary:
+    return {"corpo": _body, "coxa_l": _hip_l, "coxa_r": _hip_r, "canela_l": _knee_l, "canela_r": _knee_r,
+            "braco_l": _arm_l, "braco_r": _arm_r, "antebraco_l": _elbow_l, "antebraco_r": _elbow_r,
+            "cabeca": _head, "cabelo": _hair}
+
+func rig_translate() -> Array:
+    return ["corpo"]
+
+## Modelo esculpido no Blender: rachaduras de brasa e mechas de fogo com shader; fogo na mão do soco.
+func _setup_imported() -> void:
+    _org_mats = override_material("cur_pele", LOrgShaders.skin)
+    _org_mats.append_array(override_material("cur_cabelo", LOrgShaders.flame))
+    var hand := imported_node("FX_mao_r")
+    if hand != null:
+        _hand_fire = LFx.fire(hand, 0.08, 40, Color(1.0, 0.7, 0.2), Color(1.0, 0.2, 0.02))
+        LFx.set_rate(_hand_fire, 0.0)
+
 func on_basic_attack() -> void:
     _punch = 1.0
 
@@ -240,6 +259,10 @@ func sync_view(dt: float) -> void:
     LFx.set_rate(_hair_fire, 0.45 + heat01 * 0.55)
     LFx.set_rate(_trail_fire, (0.5 + heat01 * 0.5) if (spd > 0.5 or kit.is_dashing()) else 0.0)
     _light.light_energy = 1.0 + heat01 * 2.5
+    for m in _org_mats:
+        m.set_shader_parameter("heat", heat01)
+    if _hand_fire != null:
+        LFx.set_rate(_hand_fire, 1.0 if _punch > 0.05 else 0.15 + heat01 * 0.3)
     _sync_flames(kit)
     _jet.visible = kit.wrath_active()
     if _jet.visible:
