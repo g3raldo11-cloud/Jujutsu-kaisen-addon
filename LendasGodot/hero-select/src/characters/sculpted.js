@@ -20,7 +20,7 @@ function patch(material, body) {
 
 const SKIN = `
   float bb = clamp(vUv.x, 0.0, 1.0);
-  float cc = clamp(vUv.y, 0.0, 1.0);
+  float cc = clamp(1.0 - vUv.y, 0.0, 1.0);   // o glTF inverte o eixo V
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.018, 0.014, 0.013), cc);
   totalEmissiveRadiance += vec3(1.0, 0.3, 0.035) * pow(bb, 1.3) * 6.0 * (0.85 + 0.15 * sin(uTime * 3.0 + bb * 10.0));`;
 const FLAME = `

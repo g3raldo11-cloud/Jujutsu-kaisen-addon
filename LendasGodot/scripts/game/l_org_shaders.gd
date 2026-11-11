@@ -1,7 +1,7 @@
 class_name LOrgShaders
 extends RefCounted
 ## Shaders dos modelos orgânicos exportados do Blender. O Blender grava dados por vértice no mapa UV
-## (u = brasa/borda/posição ao longo da mecha, v = pele queimada); estes shaders transformam isso em
+## (u = brasa/borda/posição ao longo da mecha, v = pele queimada, invertido pelo glTF: 1 - v); estes shaders transformam isso em
 ## rachaduras incandescentes, mechas de fogo e bordas de escamas que brilham com o Calor.
 
 const SKIN := """
@@ -11,10 +11,10 @@ uniform vec4 albedo : source_color = vec4(0.045, 0.026, 0.018, 1.0);
 uniform float roughness_v = 0.6;
 uniform vec3 ember : source_color = vec3(1.0, 0.3, 0.035);
 uniform float heat = 0.5;
-uniform float ember_energy = 5.0;
+uniform float ember_energy = 7.0;
 void fragment() {
     float b = clamp(UV.x, 0.0, 1.0);
-    float c = clamp(UV.y, 0.0, 1.0);
+    float c = clamp(1.0 - UV.y, 0.0, 1.0);   // o glTF inverte o eixo V
     ALBEDO = mix(albedo.rgb, vec3(0.018, 0.014, 0.013), c);
     ROUGHNESS = mix(roughness_v, 0.9, c);
     float pulse = 0.85 + 0.15 * sin(TIME * 3.0 + b * 10.0);
