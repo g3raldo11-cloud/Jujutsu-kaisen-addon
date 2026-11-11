@@ -81,10 +81,11 @@ def export_glb(rig, folder, mod, target=None):
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, rig.id + '.glb')
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_active_collection=True,
-                              use_active_collection_with_nested=True, export_apply=True, export_texcoords=False,
-                              export_normals=True, export_tangents=False, export_colors=False, export_materials='EXPORT',
-                              export_cameras=False, export_lights=False, export_animations=False, export_yup=True,
-                              export_extras=False)
+                              use_active_collection_with_nested=True, export_apply=True,
+                              # o mapa UV leva os dados de brasa / ponta da mecha / borda da escama para os shaders
+                              export_texcoords=True, export_normals=True, export_tangents=False, export_colors=False,
+                              export_materials='EXPORT', export_cameras=False, export_lights=False, export_animations=False,
+                              export_yup=True, export_extras=False, export_skins=True)
     print('EXPORT', path, round(os.path.getsize(path) / 1e6, 1), 'MB')
     return path
 
