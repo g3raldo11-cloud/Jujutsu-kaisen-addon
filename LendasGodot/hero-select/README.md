@@ -4,6 +4,11 @@ Galeria interativa de character design com três heróis do folclore brasileiro 
 e **Curupira** — numa tela de seleção cinematográfica feita com **Vite + Three.js**.
 Tudo é gerado por código: modelos, texturas PBR, efeitos e cenários. Nenhum modelo ou textura externa.
 
+Os heróis aparecem com os **modelos esculpidos no Blender** (`../assets/models/*.glb`, gerados por
+`../blender/build.py`): esqueleto animado (respiração, olhar, cabelo e gorro balançando), rachaduras de
+brasa e mechas de fogo por shader, e o Boitatá enrolado em volta do pedestal, ondulando. Abra com
+`?modelo=procedural` para ver os modelos procedurais antigos.
+
 ![Saci](screenshots/saci.png)
 ![Boitatá](screenshots/boitata.png)
 ![Curupira](screenshots/curupira.png)

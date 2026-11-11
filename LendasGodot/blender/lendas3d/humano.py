@@ -195,8 +195,17 @@ def clay(hero, a, path):
     bo = bpy.data.objects.new('base_argila', me)
     bpy.context.scene.collection.objects.link(bo)
     files = []
-    for name, loc in (('frente', (0.0, -4.6, 1.15)), ('lado', (4.6, 0.25, 1.15)), ('costas', (-0.6, 4.6, 1.15))):
-        cam = stage.camera(loc, (0, 0, 1.08), 42, 0)
+    pts = []
+    for ob in hero.meshes.values():
+        bb = np.array([ob.matrix_world @ Vector(c) for c in ob.bound_box])
+        pts.append(bb)
+    pts = np.concatenate(pts)
+    lo, hi = pts.min(0), pts.max(0)
+    cz = (lo[2] + hi[2]) / 2
+    ext = max(hi[2] - lo[2], (hi[0] - lo[0]) * 0.75, (hi[1] - lo[1]) * 0.75)
+    dist = max(4.6, ext * 2.05)
+    for name, loc in (('frente', (0.0, -dist, cz + 0.05)), ('lado', (dist, 0.25, cz + 0.05)), ('costas', (-0.6, dist, cz + 0.05))):
+        cam = stage.camera(loc, (0, 0, cz - 0.07), 42, 0)
         f = path.replace('.png', f'_{name}.png')
         stage.render(f)
         bpy.data.objects.remove(cam)

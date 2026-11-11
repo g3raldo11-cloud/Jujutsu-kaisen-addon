@@ -12,6 +12,7 @@ import { createBackdrop, createPedestal } from './scenes/backdrops.js';
 import { createSaci } from './characters/saci.js';
 import { createBoitata } from './characters/boitata.js';
 import { createCurupira } from './characters/curupira.js';
+import { attachSculpted } from './characters/sculpted.js';
 import { FxPool } from './effects/burst.js';
 import { createParticles, MODES, LOOKS } from './shaders/particles.js';
 import { createUI } from './ui/ui.js';
@@ -19,10 +20,12 @@ import { createUI } from './ui/ui.js';
 // ------------------------------------------------------------------ cena, câmera e pós-processamento
 const params = new URLSearchParams(location.search);
 let quality = params.get('q') === 'low' ? 'low' : 'high';
+// modelos esculpidos no Blender (LendasGodot/assets/models); ?modelo=procedural volta aos antigos
+const SCULPTED = params.get('modelo') !== 'procedural';
 const HEROES = [
-  { make: createSaci, backdrop: 'cerrado' },
-  { make: createBoitata, backdrop: 'campo' },
-  { make: createCurupira, backdrop: 'mata' },
+  { make: createSaci, backdrop: 'cerrado', glb: 'saci.glb' },
+  { make: createBoitata, backdrop: 'campo', glb: 'boitata.glb' },
+  { make: createCurupira, backdrop: 'mata', glb: 'curupira.glb' },
 ];
 
 const canvas = document.getElementById('scene');
@@ -117,6 +120,7 @@ const ctx = {
 function getHero(i) {
   if (!cache.has(i)) {
     const h = HEROES[i].make();
+    if (SCULPTED) attachSculpted(h, HEROES[i].glb);
     h.root.traverse((o) => {
       if (o.isMesh && o.material && 'envMapIntensity' in o.material) o.material.envMapIntensity = 0.35;
     });
@@ -276,4 +280,4 @@ requestAnimationFrame(() => {
   setTimeout(() => { getHero(1); getHero(2); }, 400);
 });
 
-window.__lendas = { select: (i) => select(i, true), play, capture: () => capture(false), setQuality, get hero() { return hero?.id; }, renderer, controls, camera };
+window.__lendas = { select: (i) => select(i, true), play, capture: () => capture(false), setQuality, get hero() { return hero?.id; }, get sculpted() { return !!hero?.sculpted; }, renderer, controls, camera };
