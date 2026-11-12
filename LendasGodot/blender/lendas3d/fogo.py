@@ -428,11 +428,27 @@ def volume_object(name, path, origin, mat, col=None):
 
 
 def simulate(name, origin, size, h, emit, seconds=2.0, dt=1.0 / 60.0, folder=None, mat=None, seed=0, **params):
-    """Atalho: cria o domínio, chama ``emit(fire)`` para pôr os emissores, simula, grava e carrega."""
+    """Atalho: cria o domínio, chama ``emit(fire)`` para pôr os emissores, simula, grava e carrega.
+    A simulação fica em cache (.vdb com uma impressão digital de domínio, emissores e parâmetros):
+    renderizar de novo a mesma cena, em outra resolução ou câmera, não simula outra vez."""
+    import hashlib
     fire = Fire(origin, size, h, seed=seed, **params)
     emit(fire)
-    fire.run(seconds, dt, name)
+    hs = hashlib.sha1()
+    hs.update(repr((name, tuple(np.round(fire.o, 6)), fire.n, round(fire.h, 7), seconds, dt, seed, sorted(params.items()))).encode())
+    for e in fire.emitters:
+        for k in ('P', 'w', 'V'):
+            hs.update(np.ascontiguousarray(np.round(e[k], 6)).tobytes())
+        hs.update(repr((e['sigma'], e['fuel'], e['temp'], e['smoke'], e['flicker'], e['jitter'])).encode())
+    for target, rate in fire.forces:
+        hs.update(np.ascontiguousarray(target[:, ::4, ::4, ::4]).tobytes())
+        hs.update(repr(rate).encode())
     folder = folder or os.path.join(os.environ.get('LENDAS_CACHE', os.path.join(os.path.dirname(__file__), '..', 'cache')))
-    path = fire.write_vdb(os.path.join(os.path.abspath(folder), name + '.vdb'))
+    path = os.path.join(os.path.abspath(folder), f'{name}_{hs.hexdigest()[:12]}.vdb')
+    if os.path.exists(path):
+        print(f'FOGO {name}: cache {os.path.basename(path)}')
+    else:
+        fire.run(seconds, dt, name)
+        fire.write_vdb(path)
     ob = volume_object(name, path, fire.o, mat or fire_material(name + '_mat'))
     return ob, fire

@@ -49,14 +49,15 @@ def build(detail=2, voxel=0.00205):
     sculpt.set_attr(ob, 'cinza', np.zeros(len(V)))
     skin_regions(ob, lm, body.k)
     M = {
-        'pele': org.skin('saci_pele', (0.07, 0.04, 0.027), (1.0, 0.3, 0.05), 0.0, (0.7, 0.28, 0.15), 0.52),
-        'olho': pelos.eye_material('saci_olho', iris=(0.18, 0.07, 0.02), glow=(1.0, 0.4, 0.07), glow_strength=2.2),
+        'pele': org.skin('saci_pele', (0.07, 0.04, 0.027), (1.0, 0.3, 0.05), 0.0, (1.0, 0.4, 0.22), 0.66),
+        'olho': pelos.eye_material('saci_olho', iris=(0.2, 0.08, 0.02), glow=(1.0, 0.42, 0.08), glow_strength=0.9, iris_cos=0.865,
+                                   pupil_cos=0.968),
         'pano': org.cloth('saci_pano', (0.36, 0.016, 0.02), 0.86, 0.45, 180.0),
         'calcao': org.cloth('saci_calcao', (0.26, 0.018, 0.02), 0.88, 0.4, 160.0),
         'faixa': org.cloth('saci_faixa', (0.3, 0.025, 0.022), 0.85, 0.45, 180.0),
         'barro': org.solid('saci_barro', (0.32, 0.15, 0.08), 0.62, 0.0, 70.0, 0.25, variation=0.4),
         'madeira': org.wood('saci_madeira', (0.12, 0.06, 0.03)),
-        'brasa': org.glow('saci_brasa', (1.0, 0.32, 0.04), 6.0),
+        'brasa': org.glow('saci_brasa', (1.0, 0.32, 0.04), 3.0),
         'conta': org.solid('saci_conta', (0.6, 0.45, 0.2), 0.3, 0.6, coat=0.6),
         'corda': org.fiber('saci_corda', (0.18, 0.12, 0.06), (0.1, 0.06, 0.03), 0.8),
     }
@@ -344,7 +345,7 @@ def present(hero, mode, a, path):
             # vapor de vento girando em volta do eixo da perna (brilha azul) + fitas finas
             n = 400
             t = rng.uniform(0, 1, n)
-            Pl = top[None] * (1 - t[:, None]) + foot[None] * t[:, None] + rng.normal(0, 0.012, (n, 3))
+            Pl = top[None] * (1 - t[:, None]) + foot[None] * t[:, None] + rng.normal(0, 0.022, (n, 3)) * (1.2 - 0.6 * t[:, None])
             lo = np.minimum(top, foot) - np.array((0.22, 0.22, 0.02))
             hi = np.maximum(top, foot) + np.array((0.22, 0.22, 0.12))
 
@@ -352,24 +353,27 @@ def present(hero, mode, a, path):
                 f.add_points(Pl, 0.016, fuel=0.0, temp=0.0, smoke=0.3, flicker=0.6)
                 f.add_vortex(((top + foot) / 2)[:2], 0.06, 2.2, updraft=-0.25, inflow=0.0, rate=5.0)
             fogo.simulate('perna_vento', lo, hi - lo, 0.006, leg, seconds=1.4,
-                          mat=fogo.smoke_material('perna_vento_mat', 3.0, (0.78, 0.9, 1.0), 0.3, emission=WIND, emission_strength=0.45),
+                          mat=fogo.smoke_material('perna_vento_mat', 4.0, (0.78, 0.9, 1.0), 0.3, emission=WIND, emission_strength=0.8),
                           seed=4, buoyancy=0.0, smoke_weight=0.0, vorticity=9.0, turbulence=2.5, dissolve=2.2, drag=0.6)
-            # redemoinho de poeira de verdade em volta dele (poeira levantada do chão, girando, contra o sol)
+            ribbons_saci = fx.ribbon_material('saci_fita_suave', (0.8, 0.93, 1.0), 1.2, 0.16)
+            fx.wind_ribbons('perna_fitas', foot, 8, 0.05, 0.09, float(top[2] - foot[2]), ribbons_saci, seed=4, width=0.0025, turns=(1.0, 2.0))
+            # redemoinho de poeira de verdade atrás dele (coluna girando contra o sol)
             m = 1600
-            ra = rng.uniform(-0.25 * pi, 1.25 * pi, m)          # poeira levantando mais atrás dele (não cobre as pernas)
-            rr = rng.uniform(0.45, 1.6, m)
-            Pd = np.stack([np.cos(ra) * rr, np.sin(ra) * rr, np.full(m, 0.03)], 1)
+            vc = np.array((0.15, 0.85))
+            ra = rng.uniform(0, tau, m)
+            rr = rng.uniform(0.1, 0.9, m)
+            Pd = np.stack([vc[0] + np.cos(ra) * rr, vc[1] + np.sin(ra) * rr, np.full(m, 0.03)], 1)
 
             def devil(f):
-                f.add_points(Pd, 0.05, fuel=0.0, temp=0.0, smoke=0.8, flicker=0.8, weights=rng.uniform(0.2, 1.0, m))
-                f.add_vortex((0.0, 0.15), 0.85, 3.4, updraft=1.1, inflow=0.9, height=2.6, axis_tilt=(0.06, 0.04), rate=3.0)
-            fogo.simulate('redemoinho_poeira', (-2.0, -1.85, 0.0), (4.0, 4.0, 3.0), 0.03, devil, seconds=2.4,
-                          mat=fogo.smoke_material('poeira_mat', 1.8, (0.72, 0.55, 0.38), 0.6), seed=5,
+                f.add_points(Pd, 0.05, fuel=0.0, temp=0.0, smoke=0.9, flicker=0.8, weights=rng.uniform(0.2, 1.0, m))
+                f.add_vortex(vc, 0.45, 4.2, updraft=1.6, inflow=1.1, height=2.8, axis_tilt=(0.08, 0.03), rate=3.0)
+            fogo.simulate('redemoinho_poeira', (-1.4, -0.7, 0.0), (3.1, 3.1, 3.2), 0.028, devil, seconds=2.6,
+                          mat=fogo.smoke_material('poeira_mat', 3.0, (0.72, 0.55, 0.38), 0.6), seed=5,
                           buoyancy=0.0, smoke_weight=0.05, vorticity=4.0, turbulence=2.0, turb_scale=0.25, dissolve=0.35, drag=0.2)
             # fumaça de cachimbo: fio fino que sobe e se enrola
             fogo.simulate('fumaca_cachimbo', tip - np.array((0.15, 0.15, 0.02)), (0.3, 0.3, 0.75), 0.0035,
-                          lambda f: f.add_points(tip[None], 0.004, fuel=0.0, temp=0.35, smoke=1.4, flicker=0.4, vel=(0, 0, 0.12)),
-                          seconds=2.0, mat=fogo.smoke_material('fumaca_mat', 14.0, (0.82, 0.82, 0.84), 0.65), seed=6,
+                          lambda f: f.add_points(tip[None], 0.005, fuel=0.0, temp=0.35, smoke=2.2, flicker=0.4, vel=(0, 0, 0.12)),
+                          seconds=2.0, mat=fogo.smoke_material('fumaca_mat', 30.0, (0.85, 0.85, 0.87), 0.65), seed=6,
                           buoyancy=1.6, smoke_weight=0.0, vorticity=5.0, turbulence=0.8, turb_scale=0.03, cooling=0.6, dissolve=0.25, drag=0.3)
         else:
             n = 26

@@ -40,7 +40,7 @@ def materials():
     M['boca'] = org.solid('boi_boca', (0.2, 0.025, 0.02), 0.35, 0.0, 60.0, 0.2, sss=0.5)
     M['lingua'] = org.solid('boi_lingua', (0.25, 0.02, 0.03), 0.3, 0.0, 80.0, 0.15, sss=0.5)
     M['olho'] = org.glow('boi_olho', (1.0, 0.82, 0.45), 9.0)
-    M['olho_corpo'] = org.glow('boi_olho_corpo', (0.75, 0.92, 1.0), 7.0)
+    M['olho_corpo'] = org.glow('boi_olho_corpo', (0.75, 0.92, 1.0), 4.0)
     M['pupila'] = org.solid('boi_pupila', (0.005, 0.004, 0.004), 0.2, 0.0)
     return M
 
@@ -54,15 +54,15 @@ def head_scales_material():
     nt.links.new(tc.outputs['Object'], vo.inputs['Vector'])
     edge = org._math(nt, 'SUBTRACT', 1.0, org._math(nt, 'MULTIPLY', vo.outputs['Distance'], 9.0), clamp=True)
     mix = nt.nodes.new('ShaderNodeMixRGB')
-    mix.inputs['Color1'].default_value = (0.17, 0.1, 0.04, 1)
-    mix.inputs['Color2'].default_value = (0.02, 0.012, 0.006, 1)
+    mix.inputs['Color1'].default_value = (0.075, 0.045, 0.022, 1)
+    mix.inputs['Color2'].default_value = (0.012, 0.008, 0.005, 1)
     nt.links.new(edge, mix.inputs['Fac'])
     nt.links.new(mix.outputs['Color'], bs.inputs['Base Color'])
     org._bump(nt, bs, vo.outputs['Distance'], 0.5, 0.004)
     org._set(bs, 'Roughness', 0.42)
-    org._set(bs, 'Coat Weight', 0.3)
+    org._set(bs, 'Coat Weight', 0.2)
     org._set(bs, 'Emission Color', (1.0, 0.32, 0.04, 1))
-    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', edge, 8.0), 1.2), bs.inputs['Emission Strength'])
+    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', edge, 8.0), 2.0), bs.inputs['Emission Strength'])
     m.use_backface_culling = True
     org._gltf(m, (0.12, 0.07, 0.03), 0.0, 0.45)
     return m
@@ -78,8 +78,8 @@ def scale_material():
     am.attribute_name = 'mancha'
     nz = org._noise(nt, 60.0, 3.0)
     c1 = nt.nodes.new('ShaderNodeMixRGB')
-    c1.inputs['Color1'].default_value = (0.2, 0.12, 0.045, 1)
-    c1.inputs['Color2'].default_value = (0.02, 0.012, 0.006, 1)
+    c1.inputs['Color1'].default_value = (0.085, 0.05, 0.024, 1)
+    c1.inputs['Color2'].default_value = (0.01, 0.007, 0.005, 1)
     nt.links.new(org._math(nt, 'POWER', ab.outputs['Fac'], 1.6), c1.inputs['Fac'])
     c2 = nt.nodes.new('ShaderNodeMixRGB')
     c2.blend_type = 'MULTIPLY'
@@ -93,8 +93,8 @@ def scale_material():
     nt.links.new(nz.outputs['Color'], c3.inputs['Color2'])
     nt.links.new(c3.outputs['Color'], bs.inputs['Base Color'])
     org._set(bs, 'Emission Color', (1.0, 0.32, 0.04, 1))
-    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', ab.outputs['Fac'], 6.0), 1.6), bs.inputs['Emission Strength'])
-    org._set(bs, 'Coat Weight', 0.35)
+    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', ab.outputs['Fac'], 6.0), 2.6), bs.inputs['Emission Strength'])
+    org._set(bs, 'Coat Weight', 0.22)
     org._set(bs, 'Coat Roughness', 0.25)
     nt.links.new(org._math(nt, 'ADD', 0.3, org._math(nt, 'MULTIPLY', ab.outputs['Fac'], 0.35)), bs.inputs['Roughness'])
     org._bump(nt, bs, nz.outputs['Fac'], 0.15, 0.001)
@@ -443,7 +443,7 @@ def present(hero, mode, a, path_png):
             hi = pts.max(0) + np.array((0.25, 0.25, 0.85))
             fp = dict(burn_rate=3.0, flame_decay=3.2, cooling=1.5, buoyancy=7.0, vorticity=6.0, turbulence=3.0, smoke=0.5,
                       turb_scale=0.08)
-            fogo.simulate('fogo_corpo', lo, hi - lo, 0.016,
+            fogo.simulate('fogo_corpo', lo, hi - lo, 0.018,
                           lambda f: f.add_points(pts, 0.03, fuel=1.0, temp=1.0, vel=(0, 0, 0.4), weights=np.array(wts), flicker=0.75),
                           seconds=1.5, mat=fogo.fire_material('fogo_corpo_mat', 11.0, 0.9, temp_glow=0.55), seed=7, **fp)
             # sopro: jato de fogo saindo da boca aberta
@@ -457,7 +457,7 @@ def present(hero, mode, a, path_png):
                           seconds=1.0, mat=fogo.fire_material('sopro_mat', 16.0, 0.8, temp_glow=0.6), seed=8,
                           **dict(fp, burn_rate=4.5, buoyancy=4.0, drag=0.9))
             for i in range(10, n - 30, int(n / 8)):
-                stage.point_light(f'luz_corpo{i}', P[i] + N[i] * rad[i] * 1.8, 55.0 * rad[i] / R_MAX, (1.0, 0.45, 0.12), 0.25)
+                stage.point_light(f'luz_corpo{i}', P[i] + N[i] * rad[i] * 1.8, 22.0 * rad[i] / R_MAX, (1.0, 0.45, 0.12), 0.25)
         else:
             # chamas correndo pelas bordas do corpo (dorso e laterais), algumas azuladas
             roots, dirs, Ls, Ws, broots, bdirs, bLs, bWs = [], [], [], [], [], [], [], []
@@ -483,9 +483,10 @@ def present(hero, mode, a, path_png):
             fx.tongues('sopro', [mouth] * 12, [geo.unit(fwd + (0, 0, -0.3)) + rng.normal(0, 0.15, 3) for _ in range(12)],
                        rng.uniform(0.4, 0.95, 12), rng.uniform(0.05, 0.09, 12), hot, seed=3, wobble=0.5)
             fx.smoke_volume('fumaca', (0.0, 0.6, 0.6), 1.8, 2.6, density=0.8, seed=7.0, color=(0.25, 0.2, 0.18))
-        stage.point_light('luz_sopro', mouth + fwd * 0.5, 160.0, (1.0, 0.5, 0.12), 0.2)
-        stage.point_light('luz_olhos', hero.lm['cabeca'] + hero.lm['Rh'] @ np.array((0, -0.5, 0.35)) * HS, 60.0, (1.0, 0.8, 0.5), 0.1)
-        stage.area_light('Rosto', hero.lm['cabeca'] + np.array((1.2, -1.6, 0.6)), hero.lm['cabeca'], 160.0 if not cyc else 60.0,
+        stage.point_light('luz_sopro', mouth + fwd * 0.5, 160.0 if not cyc else 80.0, (1.0, 0.5, 0.12), 0.2)
+        stage.point_light('luz_olhos', hero.lm['cabeca'] + hero.lm['Rh'] @ np.array((0, -0.5, 0.35)) * HS, 60.0 if not cyc else 20.0,
+                          (1.0, 0.8, 0.5), 0.1)
+        stage.area_light('Rosto', hero.lm['cabeca'] + np.array((1.2, -1.6, 0.6)), hero.lm['cabeca'], 160.0 if not cyc else 35.0,
                          (1.0, 0.85, 0.7), 1.0, 0.0)
         fx.motes('brasas_ar', (0, 0.0, 0.0), 320, 3.0, 3.2, 0.0045, ember2, seed=5)
         fx.streaks('faiscas_ar', (0, 0.0, 0.3), 90, 2.4, 2.6, ember, seed=6, length=(0.03, 0.08), thick=0.0016)
