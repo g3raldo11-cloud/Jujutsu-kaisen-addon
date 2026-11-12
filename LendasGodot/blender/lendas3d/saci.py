@@ -312,7 +312,7 @@ def present(hero, mode, a, path):
         stage.sky(sun, 0.16, fog=0.0009, fog_color=(1.0, 0.86, 0.7), aerosol=2.0)
         stage.sun_light('Sol', -sun, 4.5, (1.0, 0.6, 0.32), 1.0)
         # chave quente e suave na frente (luz do poente rebatida), preenchimento frio do céu
-        stage.area_light('Chave', (-1.3, -2.4, 2.0), (0, 0, 1.5), 140.0, (1.0, 0.78, 0.58), 1.4, 0.0)
+        stage.area_light('Chave', (-1.5, -2.5, 1.55), (0, 0, 1.35), 150.0, (1.0, 0.78, 0.58), 2.6, 0.0)
         stage.area_light('Rebatedor', (1.6, -2.8, 0.7), (0, 0, 1.1), 45.0, (1.0, 0.7, 0.5), 3.0, 0.0)
         stage.area_light('Ceu', (2.2, -2.6, 3.4), (0, 0, 1.2), 50.0, (0.55, 0.68, 1.0), 4.0, 0.0)
     else:

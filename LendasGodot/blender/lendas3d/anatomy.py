@@ -71,7 +71,7 @@ class Body:
         soft = float(np.clip((self.build - 0.7) / 0.3, 0.0, 1.0))
         self.slim, self.soft = slim, soft
         # ---------------- tronco
-        e(P(0, 0.004, 1.355), (0.138 * lean ** 0.3, 0.114 * (1 - 0.06 * slim), 0.165))   # caixa torácica
+        e(P(0, 0.004, 1.355), (0.138 * lean ** 0.3 * (1 + 0.03 * slim), 0.114 * (1 - 0.1 * slim), 0.165))   # caixa torácica
         e(P(0, -0.04, 1.17), (0.1 * (1 + 0.18 * slim), 0.068, 0.12 * (1 + 0.1 * slim)))   # abdômen
         e(P(0, 0.012, 0.995 - 0.01 * slim), (0.136 * (1 - 0.12 * slim), 0.092, 0.088 * (1 - 0.1 * slim)))   # pelve
         e(P(0, -0.005, 0.895), (0.06, 0.05, 0.05), scale_build=False)        # virilha
@@ -80,7 +80,7 @@ class Body:
         for sx in (1, -1):
             X = np.array((sx, 1.0, 1.0))
             # peitoral (porção esternal, clavicular e massa) — achatado em quem é magro
-            pk = 0.35 + 0.65 * soft
+            pk = 0.15 + 0.85 * soft
             m(P(0.025 * sx, -0.102, 1.34), P(0.165 * sx, -0.058, 1.425), 0.05, 0.02 * pk, F, 1.0)
             m(P(0.04 * sx, -0.094, 1.445), P(0.16 * sx, -0.05, 1.465), 0.032, 0.018 * pk, F)
             ax_ = geo.unit((sx * 1.0, 0.0, 0.3))
@@ -109,7 +109,7 @@ class Body:
             # borda inferior do peitoral: rasa e mais reta em quem é magro (senão parece um busto)
             lift = 0.012 * (1 - soft)
             self.groove([P(0.02 * sx, -0.118, 1.325 + lift), P(0.09 * sx, -0.122, 1.318 + lift), P(0.15 * sx, -0.09, 1.345 + lift * 0.5),
-                         P(0.175 * sx, -0.05, 1.4)], 0.01, 0.005 * (0.1 + 0.9 * soft))
+                         P(0.175 * sx, -0.05, 1.4)], 0.01, 0.005 * max(0.0, soft - 0.3) / 0.7)
             self.groove([P(0.13 * sx, -0.06, 1.1), P(0.085 * sx, -0.088, 1.0), P(0.035 * sx, -0.09, 0.93)], 0.012, 0.005 * (0.3 + 0.7 * soft))
             self.groove([P(0.17 * sx, -0.06, 1.48), P(0.15 * sx, -0.07, 1.43), P(0.145 * sx, -0.06, 1.39)], 0.008, 0.004)
         self.groove([P(0, 0.115, 1.48), P(0, 0.112, 1.3), P(0, 0.1, 1.1), P(0, 0.085, 1.0)], 0.012, 0.005)
