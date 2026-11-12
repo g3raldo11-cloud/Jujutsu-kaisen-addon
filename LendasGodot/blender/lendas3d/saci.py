@@ -96,7 +96,7 @@ def build(detail=2, voxel=0.00205):
 
     # ---------------- calção: quadril, perna direita e a perna vazia (rasgadas)
     zc = 0.865 * k
-    hip = cloth_rings(V, np.linspace(1.0 * k, zc, 8), (0.0, 0.012), 0.2 * k, 0.013, rng, 0.004)
+    hip = cloth_rings(V, np.linspace(0.985 * k, zc, 8), (0.0, 0.012), 0.2 * k, 0.007, rng, 0.003)
     sculpt.noise_displace(add('calcao_quadril', geo.tube(hip, False, False), 'calcao', 2, solid=0.004), 0.003, 26.0, seed=9)
     Hr = lm['quadril_r']
     zs = np.linspace(zc + 0.02, 0.6 * k, 10)
@@ -116,7 +116,7 @@ def build(detail=2, voxel=0.00205):
 
     # ---------------- faixa na cintura com nó e pontas
     zb = 1.0 * k
-    th, rad = section(V, zb, (0.0, 0.012), pad=0.02, rmax=0.2 * k)
+    th, rad = section(V, zb, (0.0, 0.012), pad=0.011, rmax=0.2 * k)
     band = [np.array((cos(a) * r, 0.012 + sin(a) * r, zb)) for a, r in zip(th, rad)]
     band.append(band[0])
     add('faixa', geo.sweep(band, geo.superellipse(10, 0.006, 0.022, 3.0), 120, ref=UP, smooth=False, caps=(False, False)), 'faixa', 1)
@@ -295,7 +295,7 @@ def present(hero, mode, a, path):
     from . import stage, fx, mats, fogo
     from .humano import posed_points
     w, h = map(int, a.res.split('x'))
-    if mode == 'retrato':
+    if mode in ('retrato', 'medio'):
         w, h = 1080, 1350
     if mode == 'argila':
         return clay(hero, a, path)
@@ -407,6 +407,8 @@ def present(hero, mode, a, path):
                           (1.0, 0.4, 0.1), 0.02)
     if mode == 'retrato':
         stage.camera((0.95, -3.0, 0.95), (0.0, 0.0, 1.0), 52, 2.4, focus=(0.0, -0.05, 1.4))
+    elif mode == 'medio':
+        stage.camera((0.8, -1.95, 1.35), (0.0, 0.0, 1.42), 52, 2.2, focus=(0.0, -0.08, 1.6))
     elif mode == 'close':
         stage.camera((0.4, -1.15, 1.7), (0.0, 0.0, 1.6), 60, 1.6, focus=(0.0, -0.08, 1.6))
     else:

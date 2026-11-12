@@ -65,31 +65,38 @@ class Body:
     def _build(self):
         P, m, e, cap = self.P, self.m, self.e, self.cap
         lean = self.lean
+        # corpos magros (lean < 1) e pouco musculosos (build < 1): tronco masculino mais reto — cintura menos
+        # marcada, quadril estreito, peitoral achatado e vincos mais rasos (com lean=1 e build>=1 nada muda)
+        slim = float(np.clip((1.0 - lean) / 0.1, 0.0, 1.5))
+        soft = float(np.clip((self.build - 0.7) / 0.3, 0.0, 1.0))
+        self.slim, self.soft = slim, soft
         # ---------------- tronco
         e(P(0, 0.004, 1.355), (0.138 * lean ** 0.3, 0.114, 0.165))         # caixa torácica
-        e(P(0, -0.04, 1.17), (0.1, 0.068, 0.12))                             # abdômen
-        e(P(0, 0.012, 0.995), (0.136, 0.092, 0.088))                         # pelve
+        e(P(0, -0.04, 1.17), (0.1 * (1 + 0.18 * slim), 0.068, 0.12 * (1 + 0.1 * slim)))   # abdômen
+        e(P(0, 0.012, 0.995), (0.136 * (1 - 0.12 * slim), 0.092, 0.088))    # pelve
         e(P(0, -0.005, 0.895), (0.06, 0.05, 0.05), scale_build=False)        # virilha
         e(P(0, 0.07, 1.455), (0.125, 0.056, 0.075))                         # trapézio médio
         e(P(0, 0.085, 1.34), (0.06, 0.03, 0.09))                             # trapézio inferior
         for sx in (1, -1):
             X = np.array((sx, 1.0, 1.0))
-            # peitoral (porção esternal, clavicular e massa)
-            m(P(0.025 * sx, -0.102, 1.34), P(0.165 * sx, -0.058, 1.425), 0.05, 0.02, F, 1.0)
-            m(P(0.04 * sx, -0.094, 1.445), P(0.16 * sx, -0.05, 1.465), 0.032, 0.018, F)
+            # peitoral (porção esternal, clavicular e massa) — achatado em quem é magro
+            pk = 0.6 + 0.4 * soft
+            m(P(0.025 * sx, -0.102, 1.34), P(0.165 * sx, -0.058, 1.425), 0.05, 0.02 * pk, F, 1.0)
+            m(P(0.04 * sx, -0.094, 1.445), P(0.16 * sx, -0.05, 1.465), 0.032, 0.018 * pk, F)
             ax_ = geo.unit((sx * 1.0, 0.0, 0.3))
             ay_ = np.array((0.0, 1.0, 0.0))
-            e(P(0.078 * sx, -0.093, 1.395), (0.064, 0.02, 0.044), (ax_, ay_, np.cross(ax_, ay_)))    # peitoral (massa achatada)
+            e(P(0.078 * sx, -0.093 + 0.006 * (1 - soft), 1.395), (0.064, 0.02 * pk, 0.044), (ax_, ay_, np.cross(ax_, ay_)))
             # reto abdominal (gomos) e oblíquos
             e(P(0.034 * sx, -0.08, 1.165), (0.038, 0.008, 0.135))
-            e(P(0.104 * sx, -0.03, 1.14), (0.038, 0.052, 0.07))
-            e(P(0.116 * sx, 0.0, 1.08), (0.032, 0.045, 0.045))
+            ok = 1 - 0.4 * slim
+            e(P(0.104 * sx * (1 - 0.06 * slim), -0.03, 1.14), (0.038 * ok, 0.052 * ok, 0.07))
+            e(P(0.116 * sx * (1 - 0.1 * slim), 0.0, 1.08), (0.032 * ok, 0.045 * ok, 0.045 * ok))
             # dorsal largo, eretores, escápulas, glúteos
             m(P(0.12 * sx, 0.06, 1.42), P(0.065 * sx, 0.075, 1.15), 0.045, 0.026, B)
             e(P(0.034 * sx, 0.088, 1.2), (0.028, 0.024, 0.15))
             e(P(0.1 * sx, 0.098, 1.405), (0.058, 0.026, 0.06))
-            e(P(0.078 * sx, 0.066, 0.935), (0.066, 0.05, 0.076))
-            e(P(0.13 * sx, 0.03, 0.995), (0.05, 0.05, 0.05))
+            e(P(0.078 * sx, 0.066, 0.935), np.array((0.066, 0.05, 0.076)) * (1 - 0.12 * slim))
+            e(P(0.13 * sx * (1 - 0.1 * slim), 0.03, 0.995), np.array((0.05, 0.05, 0.05)) * (1 - 0.3 * slim))
             # trapézio superior e esternocleidomastoideo
             m(P(0.03 * sx, 0.035, 1.585), P(0.165 * sx, 0.02, 1.515), 0.04, 0.026, B)
             m(P(0.045 * sx, 0.02, 1.66), P(0.016 * sx, -0.066, 1.515), 0.016, 0.014, F)
@@ -98,8 +105,11 @@ class Body:
         for z in (1.224, 1.157, 1.09):
             self.groove([P(-0.06, -0.1, z + 0.004), P(0, -0.108, z), P(0.06, -0.1, z + 0.004)], 0.009, 0.0022)
         for sx in (1, -1):
-            self.groove([P(0.02 * sx, -0.118, 1.325), P(0.09 * sx, -0.122, 1.318), P(0.15 * sx, -0.09, 1.345), P(0.175 * sx, -0.05, 1.4)], 0.01, 0.005)
-            self.groove([P(0.13 * sx, -0.06, 1.1), P(0.085 * sx, -0.088, 1.0), P(0.035 * sx, -0.09, 0.93)], 0.012, 0.005)
+            # borda inferior do peitoral: rasa e mais reta em quem é magro (senão parece um busto)
+            lift = 0.012 * (1 - soft)
+            self.groove([P(0.02 * sx, -0.118, 1.325 + lift), P(0.09 * sx, -0.122, 1.318 + lift), P(0.15 * sx, -0.09, 1.345 + lift * 0.5),
+                         P(0.175 * sx, -0.05, 1.4)], 0.01, 0.005 * (0.3 + 0.7 * soft))
+            self.groove([P(0.13 * sx, -0.06, 1.1), P(0.085 * sx, -0.088, 1.0), P(0.035 * sx, -0.09, 0.93)], 0.012, 0.005 * (0.3 + 0.7 * soft))
             self.groove([P(0.17 * sx, -0.06, 1.48), P(0.15 * sx, -0.07, 1.43), P(0.145 * sx, -0.06, 1.39)], 0.008, 0.004)
         self.groove([P(0, 0.115, 1.48), P(0, 0.112, 1.3), P(0, 0.1, 1.1), P(0, 0.085, 1.0)], 0.012, 0.005)
         for sx in (1, -1):

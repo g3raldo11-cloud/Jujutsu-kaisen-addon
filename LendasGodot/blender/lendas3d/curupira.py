@@ -292,7 +292,7 @@ def present(hero, mode, a, path):
     from . import stage, fx, mats, fogo, mata
     from .humano import posed_points, attr
     w, h = map(int, a.res.split('x'))
-    if mode == 'retrato':
+    if mode in ('retrato', 'medio'):
         w, h = 1080, 1350
     if mode == 'argila':
         return clay(hero, a, path)
@@ -412,6 +412,8 @@ def present(hero, mode, a, path):
             stage.camera((1.15, -3.6, 1.1), (0.0, 0.0, 1.36), 42, 2.4, focus=(0.0, -0.05, 1.55))
         else:
             stage.camera((1.1, -3.3, 1.05), (0.0, 0.0, 1.22), 46, 2.4, focus=(0.0, -0.05, 1.55))
+    elif mode == 'medio':
+        stage.camera((0.95, -2.35, 1.55), (0.02, 0.0, 1.78), 52, 2.2, focus=(0.0, -0.08, 1.74))
     elif mode == 'close':
         stage.camera((0.45, -1.25, 1.85), (0.0, 0.0, 1.72), 60, 1.6, focus=(0.0, -0.08, 1.74))
     else:
