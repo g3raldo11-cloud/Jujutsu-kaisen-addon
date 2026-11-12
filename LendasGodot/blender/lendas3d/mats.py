@@ -124,10 +124,10 @@ def simplify_for_export(materials):
         bs = nt.nodes.new('ShaderNodeBsdfPrincipled')
         nt.links.new(bs.outputs[0], out.inputs['Surface'])
         _set(bs, 'Base Color', (*m['gltf_base'], 1.0))
-        _set(bs, 'Metallic', float(m['gltf_metal']))
-        _set(bs, 'Roughness', float(m['gltf_rough']))
-        e = list(m['gltf_emis'])
-        if float(m['gltf_strength']) > 0 and max(e) > 0:
+        _set(bs, 'Metallic', float(m.get('gltf_metal', 0.0)))
+        _set(bs, 'Roughness', float(m.get('gltf_rough', 0.5)))
+        e = list(m.get('gltf_emis', (0.0, 0.0, 0.0)))
+        if float(m.get('gltf_strength', 0.0)) > 0 and max(e) > 0:
             _set(bs, 'Emission Color', (*e, 1.0))
             _set(bs, 'Emission Strength', float(m['gltf_strength']))
         kit.set_blend(m, 'OPAQUE', 'OPAQUE')

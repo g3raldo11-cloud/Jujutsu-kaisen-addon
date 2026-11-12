@@ -152,6 +152,10 @@ def hair_material(name, melanin=0.97, redness=0.35, rough=0.32, radial=0.45, coa
             hb.inputs[k].default_value = v
     nt.links.new(hb.outputs[0], out.inputs['Surface'])
     m['gltf_base'] = [0.02, 0.015, 0.012]
+    m['gltf_metal'] = 0.0
+    m['gltf_rough'] = 0.5
+    m['gltf_emis'] = [0.0, 0.0, 0.0]
+    m['gltf_strength'] = 0.0
     return m
 
 
@@ -237,7 +241,10 @@ def eye_material(name, iris=(0.16, 0.07, 0.025), glow=(1.0, 0.38, 0.06), glow_st
     if 'Subsurface Scale' in bs.inputs:
         bs.inputs['Subsurface Scale'].default_value = 0.002
     nt.links.new(bs.outputs[0], out.inputs['Surface'])
-    m['gltf_base'] = list(sclera)
+    # no jogo (glTF sem os nós): olho escuro da cor da íris, aceso pela brasa
+    m['gltf_base'] = list(iris)
+    m['gltf_metal'] = 0.0
+    m['gltf_rough'] = 0.25
     m['gltf_emis'] = list(glow)
-    m['gltf_strength'] = glow_strength
+    m['gltf_strength'] = max(2.0, glow_strength * 3.0)
     return m
