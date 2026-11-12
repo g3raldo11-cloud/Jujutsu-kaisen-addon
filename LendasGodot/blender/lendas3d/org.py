@@ -575,19 +575,23 @@ def forest(seed=7, radius=(3.2, 14.0), trunks=34, fog=0.03, ground_r=40.0, light
     if rich:
         from . import mata
         fern_m = mata.leaf_material('mata_samambaia', mata.GREEN_LEAVES, 0.5, 0.35, (0.9, 1.0, 0.45), 0.25)
+        cam_a = -1.2                                       # as câmeras ficam na frente, em -Y (um pouco para +X)
+
+        def in_view(a, r, width, rmax):
+            return abs(((a - cam_a + pi) % tau) - pi) < width and r < rmax
         clumps = []
         for i in range(150):
             a = rng.uniform(0, tau)
             r = rng.uniform(2.2, 13.0)
-            if abs(((a - pi / 2 + pi) % tau) - pi) < 0.55 and r < 6.0:
-                continue                                   # frente livre (câmera em -Y)
+            if in_view(a, r, 0.5, 4.2):
+                continue                                   # nada grudado na lente
             clumps.append((cos(a) * r, sin(a) * r, (r / ground_r) ** 2 * 0.8))
         objs.append(mata.fern('samambaias', fern_m, rng, clumps))
         spots = []
         for i in range(34):
             a = rng.uniform(0, tau)
             r = rng.uniform(3.0, 14.0)
-            if abs(((a - pi / 2 + pi) % tau) - pi) < 0.7 and r < 7.0:
+            if in_view(a, r, 0.8, 7.5):
                 continue
             spots.append((cos(a) * r, sin(a) * r, (r / ground_r) ** 2 * 0.8))
         green = mata.leaf_material('mata_folha_verde', mata.GREEN_LEAVES, 0.45, 0.35, (0.9, 1.0, 0.45), 0.25)

@@ -93,7 +93,7 @@ def scale_material():
     nt.links.new(nz.outputs['Color'], c3.inputs['Color2'])
     nt.links.new(c3.outputs['Color'], bs.inputs['Base Color'])
     org._set(bs, 'Emission Color', (1.0, 0.32, 0.04, 1))
-    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', ab.outputs['Fac'], 6.0), 2.6), bs.inputs['Emission Strength'])
+    nt.links.new(org._math(nt, 'MULTIPLY', org._math(nt, 'POWER', ab.outputs['Fac'], 7.0), 1.9), bs.inputs['Emission Strength'])
     org._set(bs, 'Coat Weight', 0.22)
     org._set(bs, 'Coat Roughness', 0.25)
     nt.links.new(org._math(nt, 'ADD', 0.3, org._math(nt, 'MULTIPLY', ab.outputs['Fac'], 0.35)), bs.inputs['Roughness'])
