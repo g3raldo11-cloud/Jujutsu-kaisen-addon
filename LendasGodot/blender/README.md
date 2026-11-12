@@ -60,6 +60,9 @@ Opções do Cycles: `--engine eevee|cycles`, `--threshold` (ruído aceito na amo
 `--view`/`--look` (transformação de cor), `--percent 50` (teste rápido em meia resolução) e `--exr`
 (grava também um `.exr` linear para ajustar exposição e cor sem renderizar de novo).
 
+As imagens finais (1080×1350 e 1600×900, 128 amostras, CPU de 4 núcleos: ~12–20 min cada) estão em
+[`galeria/`](galeria/).
+
 O que a versão realista acrescenta:
 
 - **Fogo simulado** (`fogo.py`): o simulador do Blender (Mantaflow) não funciona nas versões usadas,
