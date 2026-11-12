@@ -166,8 +166,7 @@ def tongue_material(name, strength=20.0, stops=None, alpha_pow=1.3):
     nt.links.new(tr.outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs['Surface'])
-    m.blend_method = 'HASHED'
-    m.shadow_method = 'NONE'
+    kit.set_blend(m, 'HASHED', 'NONE')
     m.use_backface_culling = False
     return m
 
@@ -255,8 +254,7 @@ def ribbon_material(name, color, strength=6.0, alpha=0.7):
     nt.links.new(tr.outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs['Surface'])
-    m.blend_method = 'HASHED'
-    m.shadow_method = 'NONE'
+    kit.set_blend(m, 'HASHED', 'NONE')
     m.use_backface_culling = False
     return m
 

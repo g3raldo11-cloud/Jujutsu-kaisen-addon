@@ -50,10 +50,34 @@ def cage_to_mesh(cage, name, smooth_angle=35.0, attrs=None):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.to_mesh(me)
     bm.free()
-    me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
-    me.use_auto_smooth = True
-    me.auto_smooth_angle = radians(smooth_angle)
+    smooth_by_angle(me, smooth_angle)
     return me
+
+
+def smooth_by_angle(me, angle_deg=35.0):
+    """Sombreamento suave com quinas vivas acima de ``angle_deg`` (Blender 4.0 e 4.1+/5.x)."""
+    me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
+    if hasattr(me, 'use_auto_smooth'):
+        me.use_auto_smooth = True
+        me.auto_smooth_angle = radians(angle_deg)
+    elif hasattr(me, 'set_sharp_from_angle'):
+        me.set_sharp_from_angle(angle=radians(angle_deg))
+
+
+def set_blend(m, blend='HASHED', shadow='NONE'):
+    """Transparência do material (só o EEVEE usa; o Cycles ignora). Compatível com 4.0 e 4.2+."""
+    if hasattr(m, 'blend_method'):
+        try:
+            m.blend_method = blend
+        except TypeError:
+            pass
+    if hasattr(m, 'shadow_method'):
+        try:
+            m.shadow_method = shadow
+        except TypeError:
+            pass
+    if hasattr(m, 'surface_render_method') and blend in ('HASHED', 'BLEND'):
+        m.surface_render_method = 'DITHERED'
 
 
 def deselect_all():
@@ -158,7 +182,7 @@ class Rig:
             ob = bpy.context.view_layer.objects.active
             ob.name = f"{pv}_malha"
             ob.data.name = f"{self.id}_{pv}"
-            ob.data.use_auto_smooth = True
+            smooth_by_angle(ob.data, 35.0)
             ob.data.transform(self.rest[pv].inverted())
             ob.parent = self.nodes[pv]
             ob.matrix_parent_inverse = Matrix.Identity(4)

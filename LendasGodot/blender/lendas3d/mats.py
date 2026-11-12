@@ -6,6 +6,8 @@ que é o que o glTF (Godot, three.js) entende: cor base, metálico, rugosidade e
 """
 import bpy
 
+from . import kit
+
 
 def _principled(nt):
     return nt.nodes.get('Principled BSDF') or nt.nodes.new('ShaderNodeBsdfPrincipled')
@@ -128,7 +130,7 @@ def simplify_for_export(materials):
         if float(m['gltf_strength']) > 0 and max(e) > 0:
             _set(bs, 'Emission Color', (*e, 1.0))
             _set(bs, 'Emission Strength', float(m['gltf_strength']))
-        m.blend_method = 'OPAQUE'
+        kit.set_blend(m, 'OPAQUE', 'OPAQUE')
 
 
 def emission_only(name, color, strength, alpha_noise=False, blend='HASHED'):
@@ -147,10 +149,9 @@ def emission_only(name, color, strength, alpha_noise=False, blend='HASHED'):
         nt.links.new(tr.outputs[0], mix.inputs[1])
         nt.links.new(em.outputs[0], mix.inputs[2])
         nt.links.new(mix.outputs[0], out.inputs['Surface'])
-        m.blend_method = blend
-        m.shadow_method = 'NONE'
+        kit.set_blend(m, blend, 'NONE')
         m['mix'] = True
         return m, nt, mix
     nt.links.new(em.outputs[0], out.inputs['Surface'])
-    m.shadow_method = 'NONE'
+    kit.set_blend(m, 'OPAQUE', 'NONE')
     return m, nt, None
