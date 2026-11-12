@@ -96,8 +96,8 @@ def build(detail=2, voxel=0.00205):
 
     # ---------------- calção: quadril, perna direita e a perna vazia (rasgadas)
     zc = 0.865 * k
-    hip = cloth_rings(V, np.linspace(0.985 * k, zc, 8), (0.0, 0.012), 0.2 * k, 0.007, rng, 0.003)
-    sculpt.noise_displace(add('calcao_quadril', geo.tube(hip, False, False), 'calcao', 2, solid=0.004), 0.003, 26.0, seed=9)
+    hip = cloth_rings(V, np.linspace(1.035 * k, zc, 9), (0.0, 0.012), 0.2 * k, 0.003, rng, 0.002)
+    sculpt.noise_displace(add('calcao_quadril', geo.tube(hip, False, False), 'calcao', 2, solid=0.003), 0.0015, 26.0, seed=9)
     Hr = lm['quadril_r']
     zs = np.linspace(zc + 0.02, 0.6 * k, 10)
     leg = cloth_rings(V, zs, (Hr[0] + 0.004, Hr[1] - 0.004), 0.11 * k, 0.016, rng, 0.006, hem_noise=0.03)
@@ -115,8 +115,8 @@ def build(detail=2, voxel=0.00205):
     sculpt.noise_displace(add('calcao_vazio', geo.tube(empty, False, False), 'calcao', 2, solid=0.0035), 0.004, 22.0, seed=11)
 
     # ---------------- faixa na cintura com nó e pontas
-    zb = 1.0 * k
-    th, rad = section(V, zb, (0.0, 0.012), pad=0.011, rmax=0.2 * k)
+    zb = 1.035 * k
+    th, rad = section(V, zb, (0.0, 0.012), pad=0.005, rmax=0.2 * k)
     band = [np.array((cos(a) * r, 0.012 + sin(a) * r, zb)) for a, r in zip(th, rad)]
     band.append(band[0])
     add('faixa', geo.sweep(band, geo.superellipse(10, 0.006, 0.022, 3.0), 120, ref=UP, smooth=False, caps=(False, False)), 'faixa', 1)

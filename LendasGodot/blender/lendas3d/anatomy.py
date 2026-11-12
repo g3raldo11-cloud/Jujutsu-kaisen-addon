@@ -79,13 +79,14 @@ class Body:
         e(P(0, 0.085, 1.34), (0.06, 0.03, 0.09))                             # trapézio inferior
         for sx in (1, -1):
             X = np.array((sx, 1.0, 1.0))
-            # peitoral (porção esternal, clavicular e massa) — achatado em quem é magro
-            pk = 0.15 + 0.85 * soft
-            m(P(0.025 * sx, -0.102, 1.34), P(0.165 * sx, -0.058, 1.425), 0.05, 0.02 * pk, F, 1.0)
-            m(P(0.04 * sx, -0.094, 1.445), P(0.16 * sx, -0.05, 1.465), 0.032, 0.018 * pk, F)
+            # peitoral (porção esternal, clavicular e massa). Em quem é magro ele não fica mais fino (metaball
+            # fino se fragmenta): afunda no tórax e só um relevo suave aparece
+            sink = 0.017 * (1 - soft)
+            m(P(0.025 * sx, -0.102 + sink, 1.34), P(0.165 * sx, -0.058 + sink, 1.425), 0.05, 0.02, F, 1.0)
+            m(P(0.04 * sx, -0.094 + sink, 1.445), P(0.16 * sx, -0.05 + sink, 1.465), 0.032, 0.018, F)
             ax_ = geo.unit((sx * 1.0, 0.0, 0.3))
             ay_ = np.array((0.0, 1.0, 0.0))
-            e(P(0.078 * sx, -0.093 + 0.01 * (1 - soft), 1.395), (0.064, 0.02 * pk, 0.044), (ax_, ay_, np.cross(ax_, ay_)))
+            e(P(0.078 * sx, -0.093 + sink, 1.395), (0.064, 0.02, 0.044), (ax_, ay_, np.cross(ax_, ay_)))    # peitoral (massa achatada)
             # reto abdominal (gomos) e oblíquos
             e(P(0.034 * sx, -0.08, 1.165), (0.038, 0.008, 0.135))
             ok = 1 - 0.4 * slim
@@ -111,7 +112,7 @@ class Body:
             self.groove([P(0.02 * sx, -0.118, 1.325 + lift), P(0.09 * sx, -0.122, 1.318 + lift), P(0.15 * sx, -0.09, 1.345 + lift * 0.5),
                          P(0.175 * sx, -0.05, 1.4)], 0.01, 0.005 * max(0.0, soft - 0.3) / 0.7)
             self.groove([P(0.13 * sx, -0.06, 1.1), P(0.085 * sx, -0.088, 1.0), P(0.035 * sx, -0.09, 0.93)], 0.012, 0.005 * (0.3 + 0.7 * soft))
-            self.groove([P(0.17 * sx, -0.06, 1.48), P(0.15 * sx, -0.07, 1.43), P(0.145 * sx, -0.06, 1.39)], 0.008, 0.004)
+            self.groove([P(0.17 * sx, -0.06, 1.48), P(0.15 * sx, -0.07, 1.43), P(0.145 * sx, -0.06, 1.39)], 0.008, 0.004 * (0.3 + 0.7 * soft))
         self.groove([P(0, 0.115, 1.48), P(0, 0.112, 1.3), P(0, 0.1, 1.1), P(0, 0.085, 1.0)], 0.012, 0.005)
         for sx in (1, -1):
             # bordas laterais do reto abdominal e serrátil
