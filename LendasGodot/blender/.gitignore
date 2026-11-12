@@ -1,0 +1,3 @@
+# saídas locais do build.py (renders e simulações de fogo .vdb)
+renders/
+cache/

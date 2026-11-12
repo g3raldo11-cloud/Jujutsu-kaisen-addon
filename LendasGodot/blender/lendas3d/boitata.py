@@ -396,19 +396,27 @@ def coil_path(top=0.0):
 
 
 def present(hero, mode, a, path_png):
-    from . import stage, fx, mats
+    from . import stage, fx, mats, fogo, mata
     w, h = map(int, a.res.split('x'))
     if mode == 'retrato':
         w, h = 1080, 1350
     if mode == 'argila':
         from .humano import clay
         return clay(hero, a, path_png)
+    cyc = stage.cycles()
+    sim = cyc and fogo.available() and not a.nofx
     stage.setup_render((w, h), a.samples, 0.05, volumetric=True)
-    stage.world(horizon=(0.03, 0.02, 0.018), zenith=(0.004, 0.005, 0.008), fog=0.022, fog_color=(0.9, 0.7, 0.55))
-    stage.spot_light('Lua', (-2.5, 4.5, 9.0), (0.0, 0.0, 0.6), 7000.0, (0.6, 0.75, 1.0), 30, 0.5, 0.3, 1.0)
-    stage.area_light('Principal', (3.0, -3.5, 3.5), (0, 0, 0.9), 380.0, (1.0, 0.9, 0.8), 3.0, 0.0)
-    stage.area_light('Recorte', (-3.0, 3.0, 2.5), (0, 0, 1.0), 900.0, (1.0, 0.5, 0.15), 2.0, 0.05)
-    org.forest(seed=13, trunks=26)
+    if cyc:
+        stage.world(horizon=(0.006, 0.01, 0.014), zenith=(0.001, 0.002, 0.004), fog=0.009, fog_color=(0.85, 0.78, 0.7))
+        stage.sun_light('Lua', (0.3, -0.45, -1.0), 2.6, (0.6, 0.75, 1.0), 0.7)
+        mata.canopy('copa', 8.5, holes=0.52, scale=0.28, seed=7.0)
+        stage.area_light('Recorte', (-3.0, 3.0, 2.5), (0, 0, 1.0), 260.0, (1.0, 0.5, 0.15), 2.0, 0.0)
+    else:
+        stage.world(horizon=(0.03, 0.02, 0.018), zenith=(0.004, 0.005, 0.008), fog=0.022, fog_color=(0.9, 0.7, 0.55))
+        stage.spot_light('Lua', (-2.5, 4.5, 9.0), (0.0, 0.0, 0.6), 7000.0, (0.6, 0.75, 1.0), 30, 0.5, 0.3, 1.0)
+        stage.area_light('Principal', (3.0, -3.5, 3.5), (0, 0, 0.9), 380.0, (1.0, 0.9, 0.8), 3.0, 0.0)
+        stage.area_light('Recorte', (-3.0, 3.0, 2.5), (0, 0, 1.0), 900.0, (1.0, 0.5, 0.15), 2.0, 0.05)
+    org.forest(seed=13, trunks=26, rich=cyc, litter_r=6.0)
     frame = hero.frame
     P, T, N, B, s, rad = frame
     if not a.nofx:
@@ -417,40 +425,70 @@ def present(hero, mode, a, path_png):
         blue = fx.tongue_material('boi_lingua_azul', 2.4, fx.BLUE_STOPS)
         ember = mats.emission_only('boi_fagulha', (1.0, 0.5, 0.1), 6.0)[0]
         ember2 = mats.emission_only('boi_brasa_ar', (1.0, 0.4, 0.06), 3.0)[0]
-        # chamas correndo pelas bordas do corpo (dorso e laterais), algumas azuladas
-        roots, dirs, Ls, Ws, broots, bdirs, bLs, bWs = [], [], [], [], [], [], [], []
         n = len(P)
-        for i in range(8, n - 20, 11):
-            for side in ((-1, 0, 0, 1) if (i // 11) % 2 else (0, 1)):
-                ang = side * radians(50) + rng.normal(0, 0.25)
-                d = geo.unit(cos(ang) * N[i] + sin(ang) * B[i])
-                r0 = P[i] + d * rad[i] * 1.02
-                dd = geo.unit(d * 0.5 + UP * 0.9 + np.array((0.25, 0.15, 0)) + rng.normal(0, 0.25, 3))
-                L = rng.uniform(0.08, 0.5) ** 1.3 * 1.5 * (0.4 + rad[i] / R_MAX)
-                W = rng.uniform(0.03, 0.06) * (0.5 + rad[i] / R_MAX)
-                if rng.uniform() < 0.32:
-                    broots.append(r0); bdirs.append(dd); bLs.append(L); bWs.append(W)
-                else:
-                    roots.append(r0); dirs.append(dd); Ls.append(L); Ws.append(W)
-        fx.tongues('chamas_corpo', roots, dirs, Ls, Ws, hot, seed=1, wobble=0.45)
-        fx.tongues('chamas_azuis', broots, bdirs, bLs, bWs, blue, seed=2, wobble=0.45)
-        for i in range(10, n - 30, int(n / 8)):
-            fx.fire_volume(f'fogo_corpo{i}', P[i] + N[i] * rad[i] * 0.6, rad[i] * 1.6, 0.7, strength=1.8, density=3.0, seed=i * 0.37,
-                           scale=(3, 3, 1.4))
-            stage.point_light(f'luz_corpo{i}', P[i] + N[i] * rad[i] * 1.8, 70.0 * rad[i] / R_MAX, (1.0, 0.45, 0.12), 0.15)
-        # sopro de fogo saindo da boca aberta
         HS = hero.lm['head_scale']
         mouth = hero.lm['cabeca'] + hero.lm['Rh'] @ np.array((0, -0.66, -0.06)) * HS
         fwd = -T[0]
-        R = np.stack([np.cross(geo.unit(fwd + (0, 0, -0.35)), (1, 0, 0)), np.array((1.0, 0, 0)), geo.unit(fwd + (0, 0, -0.35))], 1)
-        fx.tongues('sopro', [mouth] * 12, [geo.unit(fwd + (0, 0, -0.3)) + rng.normal(0, 0.15, 3) for _ in range(12)],
-                   rng.uniform(0.4, 0.95, 12), rng.uniform(0.05, 0.09, 12), hot, seed=3, wobble=0.5)
+        if sim:
+            # fogo de verdade correndo pelo dorso e pelos flancos (emissores na pele, mais na crista)
+            pts, wts = [], []
+            for i in range(6, n - 8, 2):
+                for k in range(5):
+                    ang = rng.normal(0, 0.75)
+                    d = geo.unit(cos(ang) * N[i] + sin(ang) * B[i])
+                    pts.append(P[i] + d * rad[i] * 1.0)
+                    wts.append((0.45 + rad[i] / R_MAX) * (1.0 if abs(ang) < 0.6 else 0.6))
+            pts = np.array(pts)
+            lo = pts.min(0) - np.array((0.25, 0.25, 0.05))
+            hi = pts.max(0) + np.array((0.25, 0.25, 0.85))
+            fp = dict(burn_rate=3.0, flame_decay=3.2, cooling=1.5, buoyancy=7.0, vorticity=6.0, turbulence=3.0, smoke=0.5,
+                      turb_scale=0.08)
+            fogo.simulate('fogo_corpo', lo, hi - lo, 0.016,
+                          lambda f: f.add_points(pts, 0.03, fuel=1.0, temp=1.0, vel=(0, 0, 0.4), weights=np.array(wts), flicker=0.75),
+                          seconds=1.5, mat=fogo.fire_material('fogo_corpo_mat', 11.0, 0.9, temp_glow=0.55), seed=7, **fp)
+            # sopro: jato de fogo saindo da boca aberta
+            jet = mouth + geo.unit(fwd + (0, 0, -0.3)) * 0.05
+            jd = geo.unit(fwd + (0, 0, -0.25))
+            Pm = jet + rng.normal(0, 0.025, (300, 3))
+            jl = np.minimum(jet, jet + jd * 1.4) - np.array((0.4, 0.4, 0.35))
+            jh = np.maximum(jet, jet + jd * 1.4) + np.array((0.4, 0.4, 0.6))
+            fogo.simulate('sopro', jl, jh - jl, 0.012,
+                          lambda f: f.add_points(Pm, 0.03, fuel=1.6, temp=1.0, vel=jd * 3.2, flicker=0.4),
+                          seconds=1.0, mat=fogo.fire_material('sopro_mat', 16.0, 0.8, temp_glow=0.6), seed=8,
+                          **dict(fp, burn_rate=4.5, buoyancy=4.0, drag=0.9))
+            for i in range(10, n - 30, int(n / 8)):
+                stage.point_light(f'luz_corpo{i}', P[i] + N[i] * rad[i] * 1.8, 55.0 * rad[i] / R_MAX, (1.0, 0.45, 0.12), 0.25)
+        else:
+            # chamas correndo pelas bordas do corpo (dorso e laterais), algumas azuladas
+            roots, dirs, Ls, Ws, broots, bdirs, bLs, bWs = [], [], [], [], [], [], [], []
+            for i in range(8, n - 20, 11):
+                for side in ((-1, 0, 0, 1) if (i // 11) % 2 else (0, 1)):
+                    ang = side * radians(50) + rng.normal(0, 0.25)
+                    d = geo.unit(cos(ang) * N[i] + sin(ang) * B[i])
+                    r0 = P[i] + d * rad[i] * 1.02
+                    dd = geo.unit(d * 0.5 + UP * 0.9 + np.array((0.25, 0.15, 0)) + rng.normal(0, 0.25, 3))
+                    L = rng.uniform(0.08, 0.5) ** 1.3 * 1.5 * (0.4 + rad[i] / R_MAX)
+                    W = rng.uniform(0.03, 0.06) * (0.5 + rad[i] / R_MAX)
+                    if rng.uniform() < 0.32:
+                        broots.append(r0); bdirs.append(dd); bLs.append(L); bWs.append(W)
+                    else:
+                        roots.append(r0); dirs.append(dd); Ls.append(L); Ws.append(W)
+            fx.tongues('chamas_corpo', roots, dirs, Ls, Ws, hot, seed=1, wobble=0.45)
+            fx.tongues('chamas_azuis', broots, bdirs, bLs, bWs, blue, seed=2, wobble=0.45)
+            for i in range(10, n - 30, int(n / 8)):
+                fx.fire_volume(f'fogo_corpo{i}', P[i] + N[i] * rad[i] * 0.6, rad[i] * 1.6, 0.7, strength=1.8, density=3.0, seed=i * 0.37,
+                               scale=(3, 3, 1.4))
+                stage.point_light(f'luz_corpo{i}', P[i] + N[i] * rad[i] * 1.8, 70.0 * rad[i] / R_MAX, (1.0, 0.45, 0.12), 0.15)
+            # sopro de fogo saindo da boca aberta
+            fx.tongues('sopro', [mouth] * 12, [geo.unit(fwd + (0, 0, -0.3)) + rng.normal(0, 0.15, 3) for _ in range(12)],
+                       rng.uniform(0.4, 0.95, 12), rng.uniform(0.05, 0.09, 12), hot, seed=3, wobble=0.5)
+            fx.smoke_volume('fumaca', (0.0, 0.6, 0.6), 1.8, 2.6, density=0.8, seed=7.0, color=(0.25, 0.2, 0.18))
         stage.point_light('luz_sopro', mouth + fwd * 0.5, 160.0, (1.0, 0.5, 0.12), 0.2)
         stage.point_light('luz_olhos', hero.lm['cabeca'] + hero.lm['Rh'] @ np.array((0, -0.5, 0.35)) * HS, 60.0, (1.0, 0.8, 0.5), 0.1)
-        stage.area_light('Rosto', hero.lm['cabeca'] + np.array((1.2, -1.6, 0.6)), hero.lm['cabeca'], 160.0, (1.0, 0.85, 0.7), 1.0, 0.0)
+        stage.area_light('Rosto', hero.lm['cabeca'] + np.array((1.2, -1.6, 0.6)), hero.lm['cabeca'], 160.0 if not cyc else 60.0,
+                         (1.0, 0.85, 0.7), 1.0, 0.0)
         fx.motes('brasas_ar', (0, 0.0, 0.0), 320, 3.0, 3.2, 0.0045, ember2, seed=5)
         fx.streaks('faiscas_ar', (0, 0.0, 0.3), 90, 2.4, 2.6, ember, seed=6, length=(0.03, 0.08), thick=0.0016)
-        fx.smoke_volume('fumaca', (0.0, 0.6, 0.6), 1.8, 2.6, density=0.8, seed=7.0, color=(0.25, 0.2, 0.18))
     if mode == 'retrato':
         stage.camera((1.5, -4.1, 1.55), (0.0, -0.25, 0.95), 40, 2.8, focus=(0.05, -0.55, 1.5))
     elif mode == 'close':

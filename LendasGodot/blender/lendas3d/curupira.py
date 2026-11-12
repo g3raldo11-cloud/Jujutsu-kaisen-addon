@@ -11,7 +11,7 @@ from math import tau, pi, cos, sin, radians
 from mathutils import Matrix, Vector
 
 from . import geo, kit, sculpt, anatomy, org, rig as rigmod
-from .humano import Hero, section, transfer_nearest, anchors, rot_world, bone_world, clay, skeleton as human_bones
+from .humano import Hero, skin_regions, section, transfer_nearest, anchors, rot_world, bone_world, clay, skeleton as human_bones
 
 ID = 'curupira'
 HERO_COLOR = (1.0, 0.42, 0.08)
@@ -71,6 +71,7 @@ def build(detail=2, voxel=0.0024):
     sculpt.noise_displace(ob, 0.00035, 300.0, seed=5)
     sculpt.set_attr(ob, 'brasa', k)
     sculpt.set_attr(ob, 'cinza', np.clip(mask * 0.9, 0, 1))
+    skin_regions(ob, lm, body.k)
     M = {
         'pele': org.skin('cur_pele', (0.045, 0.026, 0.018), (1.0, 0.3, 0.035), 8.0),
         'olho': org.glow('cur_olho', (1.0, 0.55, 0.1), 9.0),
@@ -278,8 +279,18 @@ def footprint(c, yaw, s=1.0, flip=False):
     return out
 
 
+def _fill_points(poly, n, rng):
+    """Pontos espalhados dentro de um polígono 2D convexo-ish (centro -> vértices)."""
+    P = np.asarray(poly, float)
+    c = P.mean(0)
+    k = rng.integers(0, len(P), n)
+    t = np.sqrt(rng.uniform(0, 1, n))[:, None]
+    return c + (P[k] - c) * t
+
+
 def present(hero, mode, a, path):
-    from . import stage, fx, mats
+    from . import stage, fx, mats, fogo, mata
+    from .humano import posed_points, attr
     w, h = map(int, a.res.split('x'))
     if mode == 'retrato':
         w, h = 1080, 1350
@@ -287,68 +298,120 @@ def present(hero, mode, a, path):
         return clay(hero, a, path)
     arm = hero.arm
     lm = hero.lm
+    cyc = stage.cycles()
+    sim = cyc and fogo.available() and not a.nofx
     stage.setup_render((w, h), a.samples, 0.05, volumetric=True)
-    stage.world(horizon=(0.012, 0.03, 0.03), zenith=(0.002, 0.006, 0.008), fog=0.024, fog_color=(0.55, 0.85, 0.75))
-    # luz da lua atravessando a copa (fachos na névoa) + recortes
-    stage.spot_light('Lua', (-2.2, 3.5, 9.0), (0.1, 0.0, 0.8), 9000.0, (0.62, 0.85, 1.0), 26, 0.5, 0.25, 1.0)
-    stage.area_light('Recorte_frio', (-2.6, 2.2, 2.4), (0, 0, 1.3), 520.0, (0.35, 0.7, 0.9), 1.5, 0.05)
-    stage.area_light('Preenchimento', (2.5, -3.5, 1.5), (0, 0, 1.0), 120.0, (0.4, 0.7, 0.6), 4.0, 0.0)
-    stage.area_light('Principal', (2.4, -3.2, 3.2), (0, 0, 1.3), 220.0, (0.95, 0.9, 1.0), 2.5, 0.0)
-    org.forest(seed=7)
+    if cyc:
+        # noite na mata: lua (luz direcional fria) recortada pela copa -> chão salpicado e fachos na névoa;
+        # quem ilumina o Curupira de verdade é o próprio fogo (cabelo, mão, rachaduras)
+        stage.world(horizon=(0.005, 0.012, 0.014), zenith=(0.001, 0.003, 0.005), fog=0.008, fog_color=(0.62, 0.82, 0.8))
+        stage.sun_light('Lua', (0.32, -0.5, -1.0), 3.2, (0.6, 0.78, 1.0), 0.7)
+        mata.canopy('copa', 8.0, holes=0.5, scale=0.3, seed=3.0)
+        stage.area_light('Recorte_frio', (-2.6, 2.4, 2.6), (0, 0, 1.3), 140.0, (0.4, 0.68, 0.95), 1.2, 0.0)
+        stage.area_light('Preenchimento', (2.5, -3.5, 1.5), (0, 0, 1.0), 14.0, (0.45, 0.62, 0.75), 4.0, 0.0)
+    else:
+        stage.world(horizon=(0.012, 0.03, 0.03), zenith=(0.002, 0.006, 0.008), fog=0.024, fog_color=(0.55, 0.85, 0.75))
+        # luz da lua atravessando a copa (fachos na névoa) + recortes
+        stage.spot_light('Lua', (-2.2, 3.5, 9.0), (0.1, 0.0, 0.8), 9000.0, (0.62, 0.85, 1.0), 26, 0.5, 0.25, 1.0)
+        stage.area_light('Recorte_frio', (-2.6, 2.2, 2.4), (0, 0, 1.3), 520.0, (0.35, 0.7, 0.9), 1.5, 0.05)
+        stage.area_light('Preenchimento', (2.5, -3.5, 1.5), (0, 0, 1.0), 120.0, (0.4, 0.7, 0.6), 4.0, 0.0)
+        stage.area_light('Principal', (2.4, -3.2, 3.2), (0, 0, 1.3), 220.0, (0.95, 0.9, 1.0), 2.5, 0.0)
+    feet = [(lm['pe_r'][0], lm['pe_r'][1], 0.13), (lm['pe_l'][0], lm['pe_l'][1], 0.13)]
+    org.forest(seed=7, rich=cyc, avoid=feet)
     pose_hero(hero)
+    if cyc:
+        hero.meshes['cabelo'].data.materials[0] = org.ember_strands('cur_cabelo_brasa', 3.2)
     if not a.nofx:
         rng = np.random.default_rng(5)
         hot = fx.tongue_material('cur_lingua', 3.2)
         ember = mats.emission_only('cur_fagulha', (1.0, 0.45, 0.08), 7.0)[0]
         ember2 = mats.emission_only('cur_brasa_ar', (1.0, 0.32, 0.05), 3.5)[0]
         firefly = mats.emission_only('cur_vagalume', (0.75, 1.0, 0.35), 5.0)[0]
-        # ---- cabeleira em chamas: volume sobre as mechas, línguas saindo das pontas, fagulhas
         top = bone_world(arm, 'cabelo', (0, 0.05, 1.95))
-        fx.fire_volume('fogo_cabelo', top + (0, 0.02, -0.07), 0.24, 0.62, strength=2.6, density=6.0, seed=1.3,
-                       R=geo.rot((1, 0, 0), radians(-14)))
-        hairob = hero.meshes['cabelo']
-        Vh = sculpt.verts(hairob)
-        sh = np.zeros(len(Vh))
-        hairob.data.attributes['s'].data.foreach_get('value', sh)
-        Mh = np.array(hairob.matrix_world)
-        tips = Vh[sh > 0.92]
-        tips = tips[rng.choice(len(tips), size=min(40, len(tips)), replace=False)]
-        tipsw = (np.c_[tips, np.ones(len(tips))] @ Mh.T)[:, :3]
-        fx.tongues('linguas_cabelo', tipsw - np.array((0, 0, 0.04)), [(rng.normal(0, 0.2), 0.3 + rng.uniform(0, 0.3), 1.0) for _ in tipsw],
-                   rng.uniform(0.1, 0.24, len(tipsw)), rng.uniform(0.02, 0.035, len(tipsw)), hot, seed=2, wobble=0.45)
-        fx.streaks('faiscas_cabelo', top + (0, 0.05, 0.1), 60, 0.35, 1.2, ember, seed=3, length=(0.02, 0.06), thick=0.0016)
-        fx.motes('brasas_cabelo', top + (0, 0.1, 0.1), 80, 0.5, 1.6, 0.0035, ember2, seed=4)
-        # ---- Fogo Guardião: esfera de fogo na mão esquerda
         hand = bone_world(arm, 'mao_l', lm['palma_l']) + np.array((0, -0.03, 0.08))
-        fx.fire_volume('fogo_mao', hand + (0, 0, -0.08), 0.16, 0.42, strength=6.0, density=8.0, seed=4.2, scale=(4, 4, 2.2))
-        roots, dirs = [], []
-        for k in range(16):
-            ang = tau * k / 16
-            roots.append(hand + np.array((cos(ang) * 0.07, sin(ang) * 0.07, -0.02 + rng.uniform(-0.03, 0.03))))
-            dirs.append((-sin(ang) * 0.8, cos(ang) * 0.8, 0.9))
-        fx.tongues('redemoinho_mao', roots, dirs, rng.uniform(0.1, 0.2, 16), rng.uniform(0.018, 0.03, 16), hot, seed=7, wobble=0.5)
-        fx.streaks('faiscas_mao', hand, 50, 0.22, 0.5, ember, seed=8, swirl=1.2, length=(0.015, 0.05), thick=0.0014)
-        # ---- Passos Incandescentes: pegadas invertidas em brasa atrás dele
         shapes, groots = [], []
         for k, (px, py, yaw) in enumerate(((0.12, 0.55, 0.15), (-0.12, 0.95, 0.05), (0.14, 1.4, 0.2), (-0.1, 1.85, 0.1), (0.12, 2.3, 0.15))):
             shapes += footprint((px, py, 0.0), yaw, 1.05, flip=k % 2 == 1)
             groots.append((px, py, 0.0))
+        if sim:
+            fire_params = dict(burn_rate=2.4, flame_decay=3.2, cooling=1.35, buoyancy=8.5, vorticity=7.0, turbulence=3.0, smoke=0.45)
+            # ---- cabeleira em chamas: o fogo sai das próprias mechas
+            hairob = hero.meshes['cabelo']
+            Vh = posed_points(hairob)
+            sh = attr(hairob, 's')
+            sel = np.nonzero(sh > 0.15)[0]
+            sel = rng.choice(sel, size=min(6000, len(sel)), replace=False)
+            P, wts = Vh[sel], 0.35 + 0.65 * sh[sel]
+            lo = P.min(0) - (0.14, 0.14, 0.04)
+            hi = P.max(0) + (0.14, 0.3, 0.6)
+            fogo.simulate('fogo_cabelo', lo, hi - lo, 0.0065,
+                          lambda f: f.add_points(P, 0.011, fuel=1.4, temp=1.0, vel=(0.0, 0.2, 0.45), weights=wts, flicker=0.7),
+                          seconds=1.5, mat=fogo.fire_material('fogo_cabelo_mat', 12.0, 1.0, temp_glow=0.55), seed=1,
+                          **dict(fire_params, burn_rate=4.0, cooling=1.8))
+            # ---- Fogo Guardião: bola de fogo girando na mão esquerda
+            S = rng.normal(0, 1, (700, 3))
+            S /= np.linalg.norm(S, axis=1, keepdims=True)
+            Ph = hand + S * 0.05
+            tang = np.cross(np.array((0, 0, 1.0)), S)
+            Vb = tang * 0.7 + np.array((0, 0, 0.45))
+            fogo.simulate('fogo_mao', hand - (0.22, 0.22, 0.12), (0.44, 0.44, 0.8), 0.005,
+                          lambda f: f.add_points(Ph, 0.012, fuel=1.2, temp=1.0, vel=Vb, flicker=0.6),
+                          seconds=1.5, mat=fogo.fire_material('fogo_mao_mat', 12.0, 1.2, temp_glow=0.45), seed=2,
+                          **dict(fire_params, burn_rate=3.5, cooling=2.4))
+            # ---- Passos Incandescentes: chamas baixas saindo das pegadas
+            Pf = np.concatenate([np.c_[_fill_points(poly, 40, rng), np.full(40, 0.012)] for poly, _ in shapes])
+            fogo.simulate('fogo_pegadas', (-0.42, 0.22, 0.0), (0.86, 2.46, 0.5), 0.01,
+                          lambda f: f.add_points(Pf, 0.012, fuel=1.1, temp=1.0, vel=(0, 0.05, 0.25), flicker=0.8),
+                          seconds=1.2, mat=fogo.fire_material('fogo_pegadas_mat', 12.0, 0.8, temp_glow=0.5), seed=3,
+                          **dict(fire_params, buoyancy=6.0))
+        else:
+            # ---- cabeleira em chamas: volume sobre as mechas, línguas saindo das pontas
+            fx.fire_volume('fogo_cabelo', top + (0, 0.02, -0.07), 0.24, 0.62, strength=2.6, density=6.0, seed=1.3,
+                           R=geo.rot((1, 0, 0), radians(-14)))
+            hairob = hero.meshes['cabelo']
+            Vh = sculpt.verts(hairob)
+            sh = np.zeros(len(Vh))
+            hairob.data.attributes['s'].data.foreach_get('value', sh)
+            Mh = np.array(hairob.matrix_world)
+            tips = Vh[sh > 0.92]
+            tips = tips[rng.choice(len(tips), size=min(40, len(tips)), replace=False)]
+            tipsw = (np.c_[tips, np.ones(len(tips))] @ Mh.T)[:, :3]
+            fx.tongues('linguas_cabelo', tipsw - np.array((0, 0, 0.04)), [(rng.normal(0, 0.2), 0.3 + rng.uniform(0, 0.3), 1.0) for _ in tipsw],
+                       rng.uniform(0.1, 0.24, len(tipsw)), rng.uniform(0.02, 0.035, len(tipsw)), hot, seed=2, wobble=0.45)
+            # ---- Fogo Guardião: esfera de fogo na mão esquerda
+            fx.fire_volume('fogo_mao', hand + (0, 0, -0.08), 0.16, 0.42, strength=6.0, density=8.0, seed=4.2, scale=(4, 4, 2.2))
+            roots, dirs = [], []
+            for k in range(16):
+                ang = tau * k / 16
+                roots.append(hand + np.array((cos(ang) * 0.07, sin(ang) * 0.07, -0.02 + rng.uniform(-0.03, 0.03))))
+                dirs.append((-sin(ang) * 0.8, cos(ang) * 0.8, 0.9))
+            fx.tongues('redemoinho_mao', roots, dirs, rng.uniform(0.1, 0.2, 16), rng.uniform(0.018, 0.03, 16), hot, seed=7, wobble=0.5)
+            fx.tongues('chamas_pegadas', [np.asarray(p) + (rng.uniform(-0.04, 0.04), rng.uniform(-0.06, 0.06), 0) for p in groots for _ in range(3)],
+                       [(rng.uniform(-0.2, 0.2), rng.uniform(-0.1, 0.3), 1.0) for _ in range(15)], rng.uniform(0.06, 0.16, 15),
+                       rng.uniform(0.018, 0.035, 15), hot, seed=11)
+        # ---- fagulhas e brasas subindo do cabelo e da mão
+        fx.streaks('faiscas_cabelo', top + (0, 0.05, 0.1), 60, 0.35, 1.2, ember, seed=3, length=(0.02, 0.06), thick=0.0016)
+        fx.motes('brasas_cabelo', top + (0, 0.1, 0.1), 80, 0.5, 1.6, 0.0035, ember2, seed=4)
+        fx.streaks('faiscas_mao', hand, 50, 0.22, 0.5, ember, seed=8, swirl=1.2, length=(0.015, 0.05), thick=0.0014)
+        # ---- pegadas invertidas em brasa atrás dele
         fx.glow_decals('pegadas', shapes, mats.emission_only('cur_pegada', (1.0, 0.3, 0.04), 3.0)[0])
-        fx.tongues('chamas_pegadas', [np.asarray(p) + (rng.uniform(-0.04, 0.04), rng.uniform(-0.06, 0.06), 0) for p in groots for _ in range(3)],
-                   [(rng.uniform(-0.2, 0.2), rng.uniform(-0.1, 0.3), 1.0) for _ in range(15)], rng.uniform(0.06, 0.16, 15),
-                   rng.uniform(0.018, 0.035, 15), hot, seed=11)
         for i, p in enumerate(groots):
             stage.point_light(f'luz_pegada{i}', (p[0], p[1], 0.1), 8.0, (1.0, 0.4, 0.1), 0.05)
         # ---- vaga-lumes, brasas no ar e névoa baixa
-        fx.motes('vagalumes', (0, 1.0, 0.3), 90, 4.5, 2.6, 0.006, firefly, seed=12)
+        fx.motes('vagalumes', (0, 1.6 if cyc else 1.0, 0.3), 90 if not cyc else 45, 4.5 if not cyc else 3.6, 2.6, 0.006 if not cyc else 0.004,
+                 firefly, seed=12)
         fx.motes('brasas_ar', (0, 0.3, 0.2), 120, 2.0, 2.4, 0.003, ember2, seed=13)
-        fx.smoke_volume('nevoa_chao', (0, 0.6, -0.05), 4.5, 0.6, density=1.2, seed=9.0, color=(0.5, 0.7, 0.65), scale=(0.6, 0.6, 1.0))
-        # ---- luzes do fogo
-        stage.point_light('luz_cabelo', top + (0, 0, 0.1), 90.0, (1.0, 0.45, 0.12), 0.12)
+        fx.smoke_volume('nevoa_chao', (0, 0.6, -0.05), 4.5, 0.6, density=1.2 if not cyc else 0.5, seed=9.0,
+                        color=(0.5, 0.7, 0.65), scale=(0.6, 0.6, 1.0))
+        # ---- luzes do fogo (no Cycles volumes emissivos não são amostrados como luz: estas fazem esse papel)
+        stage.point_light('luz_cabelo', top + (0, 0, 0.1), 90.0 if not cyc else 70.0, (1.0, 0.45, 0.12), 0.12 if not cyc else 0.16)
         stage.point_light('luz_mao', hand, 110.0, (1.0, 0.42, 0.1), 0.08)
         stage.point_light('luz_brasas_corpo', np.array((0.0, -0.4, 1.2)), 25.0, (1.0, 0.35, 0.08), 0.3)
     if mode == 'retrato':
-        stage.camera((1.1, -3.3, 1.05), (0.0, 0.0, 1.22), 46, 2.4, focus=(0.0, -0.05, 1.55))
+        if cyc:
+            stage.camera((1.15, -3.6, 1.1), (0.0, 0.0, 1.36), 42, 2.4, focus=(0.0, -0.05, 1.55))
+        else:
+            stage.camera((1.1, -3.3, 1.05), (0.0, 0.0, 1.22), 46, 2.4, focus=(0.0, -0.05, 1.55))
     elif mode == 'close':
         stage.camera((0.45, -1.25, 1.85), (0.0, 0.0, 1.72), 60, 1.6, focus=(0.0, -0.08, 1.74))
     else:

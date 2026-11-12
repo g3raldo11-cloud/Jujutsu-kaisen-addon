@@ -1,9 +1,12 @@
 """Constrói os personagens mecanizados no Blender, renderiza e exporta .glb.
 
-Uso (linha de comando, Blender 4.x). Estilo orgânico por padrão; --estilo mecanico gera a versão de armadura:
+Uso (linha de comando, Blender 4.0 ou mais novo). Estilo orgânico por padrão; --estilo mecanico gera a
+versão de armadura:
     blender -b -P build.py -- --hero curupira --render beauty --export ../assets/models
     blender -b -P build.py -- --hero all --export ../assets/models
+    blender -b -P build.py -- --hero saci --render retrato --engine cycles --samples 256
     blender -P build.py -- --hero saci          (abre o Blender com a cena montada)
+Também roda com o módulo `bpy` do PyPI (pip install bpy): python build.py -- --hero saci --render retrato
 
 Opções:
     --hero       curupira | saci | boitata | all
@@ -11,8 +14,9 @@ Opções:
     --export     pasta onde salvar <hero>.glb (feito por último: simplifica os materiais)
     --save       salva o .blend (opcional)
     --detail     nível de subdivisão das placas (2 = padrão, >500 mil polígonos)
-    --samples    amostras do EEVEE (64)
+    --samples    amostras (EEVEE: 64; Cycles: teto da amostragem adaptativa, ex.: 256)
     --res        resolução, ex.: 1600x900
+    --engine     eevee | cycles
 """
 import argparse
 import faulthandler
@@ -55,6 +59,14 @@ def args():
     ap.add_argument('--faces', type=int, default=110000, help='faces do .glb de jogo (0 = resolução cheia)')
     ap.add_argument('--pose', action='store_true')
     ap.add_argument('--estilo', default='organico', choices=['organico', 'mecanico'])
+    ap.add_argument('--engine', default='', choices=['', 'eevee', 'cycles'],
+                    help='motor de render (padrão: EEVEE no Blender 4.0/4.1, Cycles no 4.2+)')
+    ap.add_argument('--threshold', type=float, default=0.02, help='Cycles: limiar da amostragem adaptativa')
+    ap.add_argument('--view', default='Filmic', help='Cycles: transformação de cor (Filmic, AgX, Standard...)')
+    ap.add_argument('--look', default='Medium High Contrast', help='Cycles: look da transformação de cor')
+    ap.add_argument('--exposure', type=float, default=0.0)
+    ap.add_argument('--percent', type=int, default=100, help='escala da resolução (testes rápidos)')
+    ap.add_argument('--exr', action='store_true', help='Cycles: grava também um .exr linear')
     return ap.parse_args(argv)
 
 
@@ -116,6 +128,11 @@ def preview(rig, mod, out, a):
 def main():
     faulthandler.enable()
     a = args()
+    if a.engine:
+        stage.ENGINE = a.engine.upper()
+    stage.CYCLES.update(threshold=a.threshold, view=a.view, look=a.look, exposure=a.exposure, percent=a.percent, exr=a.exr)
+    print('ENGINE', stage.ENGINE, bpy.app.version_string)
+    os.environ.setdefault('LENDAS_CACHE', os.path.join(os.path.abspath(a.out), 'cache'))   # .vdb do fogo simulado
     table = MECH if a.estilo == 'mecanico' else HEROES
     heroes = list(table) if a.hero == 'all' else [a.hero]
     report = {}

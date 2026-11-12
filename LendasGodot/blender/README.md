@@ -37,6 +37,47 @@ blender -P build.py -- --hero saci
 
 O último comando abre o Blender com a cena montada, para olhar e mexer à vontade.
 
+## Render realista (Cycles)
+
+No Blender 4.2 ou mais novo o render é feito no **Cycles** (traçado de caminhos): luz global, sombras
+de verdade, subsuperfície na pele, volumes e redução de ruído **OIDN**, com amostragem adaptativa e cor
+**Filmic**. Também roda sem interface com o módulo `bpy` do PyPI (foi assim que os renders foram
+feitos, num servidor só com CPU):
+
+```bash
+pip install bpy scipy numba
+```
+
+```bash
+python build.py -- --hero curupira --render retrato,close --samples 160
+```
+
+```bash
+blender -b -P build.py -- --hero saci --render retrato --engine cycles --samples 160
+```
+
+Opções do Cycles: `--engine eevee|cycles`, `--threshold` (ruído aceito na amostragem adaptativa),
+`--view`/`--look` (transformação de cor), `--percent 50` (teste rápido em meia resolução) e `--exr`
+(grava também um `.exr` linear para ajustar exposição e cor sem renderizar de novo).
+
+O que a versão realista acrescenta:
+
+- **Fogo simulado** (`fogo.py`): o simulador do Blender (Mantaflow) não funciona nas versões usadas,
+  então o fogo é simulado por um solver próprio — fluido em grade com advecção BFECC, empuxo pelo
+  calor, confinamento de vorticidade, turbulência, combustão (combustível → calor, chama e fuligem) e
+  projeção de pressão exata por transformada de cosseno. O resultado é gravado em **OpenVDB** e o
+  Cycles renderiza como volume. Com `numba` instalado a simulação fica ~4x mais rápida. O mesmo solver
+  faz a fumaça do cachimbo, o redemoinho de poeira e o vapor da perna de vento do Saci.
+- **Mata e cerrado** (`mata.py`): milhares de folhas secas curvadas no chão, samambaias com folíolos,
+  arvoretas, gravetos, copa que recorta a luz da lua (chão salpicado e fachos na névoa), casca de árvore
+  com fissuras e liquens; no cerrado, capim fio a fio, cupinzeiros, árvores tortas com folhas e céu
+  físico de pôr do sol.
+- **Pelos e olhos** (`pelos.py`): cabelo crespo do Saci, sobrancelhas e cílios como curvas renderizadas
+  fio a fio (modelo de fibra com melanina); olhos com esclera, íris acesa, pupila e córnea molhada.
+- **Pele**: subsuperfície com o alcance da pele de verdade, palmas e solas mais claras, lábios mais
+  escuros e úmidos, poros.
+- A névoa fica numa caixa de volume (no Cycles o volume do "mundo" é infinito e apagaria a luz da lua).
+
 Opções principais: `--hero curupira|saci|boitata|all`, `--render retrato,beauty,close,argila,preview`,
 `--export pasta`, `--faces N` (faces do `.glb`; 0 = resolução cheia), `--samples`, `--res 1920x1080`,
 `--save pasta` (salva o `.blend`), `--nofx` (sem efeitos), `--estilo mecanico` (versão de armadura,
@@ -58,8 +99,10 @@ alternativa).
   (fibras, cordas trançadas, amarrações, lança, olhos) e os cenários **mata** e **cerrado**.
 - `curupira.py`, `saci.py`, `boitata.py` — cada herói; `humano.py` reúne o que Curupira e Saci têm em
   comum (esqueleto, âncoras de efeito, poses, vista em argila).
-- `fx.py`, `stage.py` — fogo volumétrico, línguas de fogo, faíscas, brasas, fumaça, fitas de vento,
-  luzes, névoa e câmera (render EEVEE).
+- `fx.py`, `stage.py` — fogo volumétrico procedural, línguas de fogo, faíscas, brasas, fumaça, fitas de
+  vento, luzes, névoa, céu e câmera (render EEVEE ou Cycles).
+- `fogo.py`, `mata.py`, `pelos.py` — simulação de fogo/fumaça (OpenVDB), vegetação em lote e pelos/olhos
+  (ver "Render realista").
 - `mec_*.py`, `parts.py` — a versão mecanizada (armaduras), mantida como alternativa.
 
 ## O que cada modelo traz
@@ -86,6 +129,7 @@ brasa/borda vão no mapa UV e viram brilho nos shaders (`scripts/game/l_org_shad
 ## Limites (para ser honesto)
 
 É escultura **procedural**: proporções, músculos e rostos são estilizados e calculados, não uma
-escultura feita à mão num ZBrush. As mãos têm dedos separados mas não seguram objetos de verdade
+escultura feita à mão num ZBrush. O fogo é uma simulação simplificada (sem domínio adaptativo nem
+partículas), feita para imagens paradas; e o render realista na CPU é lento (vários minutos por imagem). As mãos têm dedos separados mas não seguram objetos de verdade
 (a lança atravessa a mão). As referências enviadas serviram de guia de estilo e de traços das lendas;
 nada foi copiado delas.

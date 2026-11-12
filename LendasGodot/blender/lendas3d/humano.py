@@ -168,6 +168,53 @@ def rot_world(arm, bone, axis, deg):
     bpy.context.view_layer.update()
 
 
+def skin_regions(ob, lm, k):
+    """Regiões de tom da pele para o material: 'palma' (palmas e solas mais claras, como na pele negra
+    de verdade) e 'labio' (lábios mais escuros e úmidos)."""
+    V = sculpt.verts(ob)
+    Nn = sculpt.normals(ob)
+    palma = np.zeros(len(V))
+    for side in ('r', 'l'):
+        if 'pulso_' + side not in lm:
+            continue
+        W = lm['pulso_' + side]
+        d = geo.unit(lm['mao_' + side] - W)
+        pdir = geo.unit(lm['palma_' + side] - (W + d * 0.07 * k))
+        c = W + d * 0.075 * k
+        dist = np.linalg.norm(V - c, axis=1)
+        facing = np.clip((Nn @ pdir - 0.05) / 0.5, 0, 1)
+        palma = np.maximum(palma, np.exp(-(dist / (0.075 * k)) ** 4) * facing)
+    sole = np.clip((-Nn[:, 2] - 0.35) / 0.4, 0, 1) * (V[:, 2] < 0.06 * k)
+    palma = np.maximum(palma, sole)
+    lab = np.zeros(len(V))
+    for c, r in ((np.array((0, -0.0995, 1.685)) * k, (0.026, 0.012, 0.009)), (np.array((0, -0.0965, 1.671)) * k, (0.022, 0.012, 0.0095))):
+        q = (V - c) / (np.asarray(r) * k)
+        lab = np.maximum(lab, np.clip(1.6 - np.sum(q * q, axis=1), 0, 1))
+    sculpt.set_attr(ob, 'palma', palma)
+    sculpt.set_attr(ob, 'labio', lab)
+
+
+def posed_points(ob):
+    """Vértices da malha já deformada pela pose (coordenadas do mundo), na mesma ordem da malha."""
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = ob.evaluated_get(dg)
+    me = ev.to_mesh()
+    V = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get('co', V)
+    M = np.array(ev.matrix_world)
+    ev.to_mesh_clear()
+    V = V.reshape(-1, 3)
+    return V @ M[:3, :3].T + M[:3, 3]
+
+
+def attr(ob, name):
+    a = np.zeros(len(ob.data.vertices))
+    if name in ob.data.attributes:
+        ob.data.attributes[name].data.foreach_get('value', a)
+    return a
+
+
 def bone_world(arm, bone, local=(0, 0, 0)):
     """Posição no mundo de um ponto preso ao osso (em coordenadas de repouso)."""
     bpy.context.view_layer.update()

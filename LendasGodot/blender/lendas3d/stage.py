@@ -1,5 +1,6 @@
 """Palco de apresentação: render EEVEE (brilho/bloom, sombras suaves, oclusão, reflexos, névoa
-volumétrica), céu em degradê, luzes de estúdio, pedestal mecânico e auréola ao fundo."""
+volumétrica) ou Cycles (traçado de caminhos com luz global, subsuperfície, volumes e redução de
+ruído OIDN), céu em degradê, luzes de estúdio, pedestal mecânico e auréola ao fundo."""
 import bpy
 import numpy as np
 from math import radians, tau, cos, sin
@@ -7,8 +8,21 @@ from mathutils import Vector
 
 from . import geo, kit, mats
 
+# 'EEVEE' (Blender 4.0/4.1, rápido) ou 'CYCLES' (realista; obrigatório no Blender 4.2+, cujo EEVEE
+# novo não tem as opções usadas abaixo). build.py escolhe com --engine.
+ENGINE = 'EEVEE' if bpy.app.version < (4, 2, 0) else 'CYCLES'
+# ajustes do Cycles (build.py preenche a partir da linha de comando)
+# Filmic: o fogo forte vai de laranja a amarelo e branco como numa foto; o AgX desbota chamas fortes para rosa.
+CYCLES = {'threshold': 0.02, 'view': 'Filmic', 'look': 'Medium High Contrast', 'exposure': 0.0, 'glare': 1.0, 'percent': 100}
+
+
+def cycles():
+    return ENGINE == 'CYCLES'
+
 
 def setup_render(res=(1600, 900), samples=64, bloom=0.06, volumetric=True):
+    if cycles():
+        return setup_cycles(res, samples, bloom, volumetric)
     sc = bpy.context.scene
     sc.render.engine = 'BLENDER_EEVEE'
     e = sc.eevee
@@ -51,6 +65,99 @@ def setup_render(res=(1600, 900), samples=64, bloom=0.06, volumetric=True):
     return sc
 
 
+def setup_cycles(res=(1600, 900), samples=256, bloom=0.06, volumetric=True):
+    """Cycles na CPU: amostragem adaptativa + OIDN (com albedo e normal), luz global limitada a poucos
+    saltos (rápido e sem perder o realismo), volumes com passo fino, cores AgX e brilho no compositor."""
+    sc = bpy.context.scene
+    sc.render.engine = 'CYCLES'
+    cy = sc.cycles
+    cy.device = 'CPU'
+    cy.samples = samples
+    cy.use_adaptive_sampling = True
+    cy.adaptive_threshold = CYCLES['threshold']
+    if hasattr(cy, 'adaptive_min_samples'):
+        cy.adaptive_min_samples = min(64, max(16, samples // 8))
+    cy.use_denoising = True
+    for k, v in (('denoiser', 'OPENIMAGEDENOISE'), ('denoising_input_passes', 'RGB_ALBEDO_NORMAL'),
+                 ('denoising_prefilter', 'ACCURATE'), ('denoising_quality', 'HIGH')):
+        if hasattr(cy, k):
+            setattr(cy, k, v)
+    cy.max_bounces = 10
+    cy.diffuse_bounces = 3
+    cy.glossy_bounces = 3
+    cy.transmission_bounces = 8
+    cy.volume_bounces = 1 if volumetric else 0
+    cy.transparent_max_bounces = 48       # línguas de fogo e folhas transparentes empilhadas
+    cy.caustics_reflective = False
+    cy.caustics_refractive = False
+    cy.blur_glossy = 1.0
+    cy.sample_clamp_direct = 0.0
+    cy.sample_clamp_indirect = 6.0
+    cy.volume_step_rate = 1.0 if volumetric else 2.0
+    cy.volume_max_steps = 512
+    if hasattr(cy, 'use_light_tree'):
+        cy.use_light_tree = True
+    sc.render.resolution_x, sc.render.resolution_y = res
+    sc.render.resolution_percentage = CYCLES['percent']
+    sc.render.film_transparent = False
+    sc.render.image_settings.file_format = 'PNG'
+    sc.render.image_settings.color_mode = 'RGB'
+    sc.render.image_settings.color_depth = '8'
+    vs = sc.view_settings
+    try:
+        vs.view_transform = CYCLES['view']
+        vs.look = CYCLES['look']
+    except TypeError:
+        vs.view_transform = 'Filmic'
+        vs.look = 'None'
+    vs.exposure = CYCLES['exposure']
+    vs.gamma = 1.0
+    compositor(bloom * CYCLES['glare'])
+    return sc
+
+
+def compositor(bloom=0.06):
+    """Pós-processamento leve de lente: brilho (bloom) nas fontes fortes (fogo, brasas, olhos) e uma
+    dispersão cromática bem sutil nas bordas."""
+    sc = bpy.context.scene
+    if hasattr(sc.render, 'compositor_device'):
+        sc.render.compositor_device = 'CPU'             # sem placa de vídeo (servidor, módulo bpy)
+    if hasattr(sc, 'compositing_node_group'):          # Blender 5.x: o compositor é um grupo de nós
+        ng = bpy.data.node_groups.new('Pos', 'CompositorNodeTree')
+        sc.compositing_node_group = ng
+        rl = ng.nodes.new('CompositorNodeRLayers')
+        out = ng.nodes.new('NodeGroupOutput')
+        ng.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+        gl = ng.nodes.new('CompositorNodeGlare')
+        gl.inputs['Type'].default_value = 'Bloom'
+        gl.inputs['Quality'].default_value = 'High'
+        gl.inputs['Threshold'].default_value = 1.2
+        gl.inputs['Smoothness'].default_value = 0.4
+        gl.inputs['Strength'].default_value = min(1.0, bloom * 6.0)
+        gl.inputs['Size'].default_value = 0.75
+        ld = ng.nodes.new('CompositorNodeLensdist')
+        ld.inputs['Dispersion'].default_value = 0.012
+        ld.inputs['Distortion'].default_value = 0.0
+        ng.links.new(rl.outputs['Image'], gl.inputs['Image'])
+        ng.links.new(gl.outputs['Image'], ld.inputs['Image'])
+        ng.links.new(ld.outputs['Image'], out.inputs[0])
+        return ng
+    sc.use_nodes = True                                 # Blender 4.x
+    nt = sc.node_tree
+    nt.nodes.clear()
+    rl = nt.nodes.new('CompositorNodeRLayers')
+    comp = nt.nodes.new('CompositorNodeComposite')
+    gl = nt.nodes.new('CompositorNodeGlare')
+    gl.glare_type = 'FOG_GLOW'
+    gl.quality = 'HIGH'
+    gl.threshold = 1.2
+    gl.mix = -1.0 + min(1.0, bloom * 6.0)
+    gl.size = 8
+    nt.links.new(rl.outputs['Image'], gl.inputs['Image'])
+    nt.links.new(gl.outputs['Image'], comp.inputs['Image'])
+    return nt
+
+
 def world(horizon=(0.03, 0.035, 0.05), zenith=(0.004, 0.005, 0.01), fog=0.012, fog_color=(0.6, 0.65, 0.8)):
     sc = bpy.context.scene
     w = bpy.data.worlds.new('Mundo')
@@ -76,13 +183,63 @@ def world(horizon=(0.03, 0.035, 0.05), zenith=(0.004, 0.005, 0.01), fog=0.012, f
     nt.links.new(ramp.outputs['Color'], bg.inputs['Color'])
     bg.inputs['Strength'].default_value = 1.0
     nt.links.new(bg.outputs[0], out.inputs['Surface'])
-    if fog > 0:
+    if fog > 0 and cycles():
+        fog_box(fog, fog_color)
+    elif fog > 0:
         vol = nt.nodes.new('ShaderNodeVolumePrincipled')
         vol.inputs['Density'].default_value = fog
         vol.inputs['Color'].default_value = (*fog_color, 1)
         vol.inputs['Anisotropy'].default_value = 0.35
         nt.links.new(vol.outputs[0], out.inputs['Volume'])
     return w
+
+
+def sky(sun_dir, strength=0.3, fog=0.0, fog_color=(1, 1, 1), air=1.0, aerosol=1.0, ozone=1.0):
+    """Céu físico (espalhamento da atmosfera: pôr do sol de verdade) com o sol na direção ``sun_dir``
+    (para onde fica o sol, visto do chão). O disco do sol fica de fora: quem ilumina é a luz SUN."""
+    sc = bpy.context.scene
+    w = bpy.data.worlds.new('Ceu')
+    sc.world = w
+    w.use_nodes = True
+    nt = w.node_tree
+    bg = nt.nodes['Background']
+    sk = nt.nodes.new('ShaderNodeTexSky')
+    types = [i.identifier for i in sk.bl_rna.properties['sky_type'].enum_items]
+    sk.sky_type = 'MULTIPLE_SCATTERING' if 'MULTIPLE_SCATTERING' in types else 'NISHITA'
+    d = np.asarray(sun_dir, float)
+    d = d / np.linalg.norm(d)
+    sk.sun_elevation = float(np.arcsin(d[2]))
+    sk.sun_rotation = float(np.arctan2(d[0], d[1]))      # 0 = sol em +Y, 90° = sol em +X
+    sk.sun_disc = False
+    for k, v in (('air_density', air), ('aerosol_density', aerosol), ('ozone_density', ozone)):
+        if hasattr(sk, k):
+            setattr(sk, k, v)
+    nt.links.new(sk.outputs[0], bg.inputs['Color'])
+    bg.inputs['Strength'].default_value = strength
+    if fog > 0:
+        fog_box(fog, fog_color)
+    return w
+
+
+def fog_box(density, color, half=40.0, top=24.0, anisotropy=0.35):
+    """Névoa do Cycles numa caixa grande (e não no mundo): no Cycles o volume do mundo é infinito e
+    apagaria a luz do sol/lua, que vem de infinitamente longe."""
+    m = bpy.data.materials.new('nevoa')
+    m.use_nodes = True
+    nt = m.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new('ShaderNodeOutputMaterial')
+    vol = nt.nodes.new('ShaderNodeVolumePrincipled')
+    vol.inputs['Density'].default_value = density
+    vol.inputs['Color'].default_value = (*color, 1)
+    vol.inputs['Anisotropy'].default_value = anisotropy
+    nt.links.new(vol.outputs[0], out.inputs['Volume'])
+    c = geo.box((0, 0, (top - 1.0) / 2), (half * 2, half * 2, top + 1.0))
+    me = kit.cage_to_mesh(c, 'nevoa')
+    me.materials.append(m)
+    ob = bpy.data.objects.new('Nevoa', me)
+    bpy.context.scene.collection.objects.link(ob)
+    return ob
 
 
 def area_light(name, loc, target, energy, color=(1, 1, 1), size=2.0, vol=1.0, shape='DISK'):
@@ -97,7 +254,18 @@ def area_light(name, loc, target, energy, color=(1, 1, 1), size=2.0, vol=1.0, sh
     ob.location = loc
     d = Vector(target) - Vector(loc)
     ob.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+    _cycles_light(ob, vol)
     return ob
+
+
+def _cycles_light(ob, vol, shadow=True):
+    """No Cycles a luz é física: toda luz faz sombra; as que quase não deviam iluminar a névoa
+    (vol baixo no EEVEE) ficam invisíveis para o espalhamento no volume."""
+    if not cycles():
+        return
+    ob.data.use_shadow = shadow
+    if hasattr(ob, 'visible_volume_scatter'):
+        ob.visible_volume_scatter = vol >= 0.3
 
 
 def spot_light(name, loc, target, energy, color=(1, 1, 1), angle=30.0, blend=0.6, radius=0.2, vol=1.0):
@@ -113,6 +281,20 @@ def spot_light(name, loc, target, energy, color=(1, 1, 1), angle=30.0, blend=0.6
     ob.location = loc
     d = Vector(target) - Vector(loc)
     ob.rotation_euler = d.to_track_quat('-Z', 'Y').to_euler()
+    _cycles_light(ob, vol)
+    return ob
+
+
+def sun_light(name, toward, strength, color=(1, 1, 1), angle=0.5, vol=1.0):
+    """Luz direcional (lua/sol). ``toward``: direção para onde a luz VAI (de cima para baixo)."""
+    ld = bpy.data.lights.new(name, 'SUN')
+    ld.energy = strength
+    ld.color = color
+    ld.angle = radians(angle)
+    ob = bpy.data.objects.new(name, ld)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.rotation_euler = Vector(toward).to_track_quat('-Z', 'Y').to_euler()
+    _cycles_light(ob, vol)
     return ob
 
 
@@ -126,6 +308,7 @@ def point_light(name, loc, energy, color, radius=0.1, vol=0.6, shadow=False):
     ob = bpy.data.objects.new(name, ld)
     bpy.context.scene.collection.objects.link(ob)
     ob.location = loc
+    _cycles_light(ob, vol)
     return ob
 
 
@@ -250,3 +433,12 @@ def render(path):
     sc = bpy.context.scene
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
+    if cycles() and CYCLES.get('exr'):
+        # cópia linear (sem transformação de cor) para ajustar exposição/cor depois sem renderizar de novo
+        st = sc.render.image_settings
+        old = (st.file_format, st.color_mode, st.color_depth)
+        st.file_format = 'OPEN_EXR'
+        st.color_mode = 'RGB'
+        st.color_depth = '16'
+        bpy.data.images['Render Result'].save_render(path.rsplit('.', 1)[0] + '.exr', scene=sc)
+        st.file_format, st.color_mode, st.color_depth = old

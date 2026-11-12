@@ -54,6 +54,34 @@ def cage_to_mesh(cage, name, smooth_angle=35.0, attrs=None):
     return me
 
 
+def fast_mesh(name, V, F, attrs=None, mats=None, smooth=True):
+    """Malha direto de arrays numpy (rápido para dezenas de milhares de peças repetidas: folhas,
+    capim, fiapos). ``F``: array (M, k) com polígonos de k lados. ``attrs``: {nome: valor por vértice}."""
+    V = np.ascontiguousarray(V, np.float32).reshape(-1, 3)
+    F = np.ascontiguousarray(F, np.int32)
+    me = bpy.data.meshes.new(name)
+    me.vertices.add(len(V))
+    me.vertices.foreach_set('co', V.ravel())
+    k = F.shape[1]
+    me.loops.add(F.size)
+    me.loops.foreach_set('vertex_index', F.ravel())
+    me.polygons.add(len(F))
+    me.polygons.foreach_set('loop_start', np.arange(0, F.size, k, dtype=np.int32))
+    try:                                   # só existe gravável até o Blender 3.x
+        me.polygons.foreach_set('loop_total', np.full(len(F), k, np.int32))
+    except (AttributeError, TypeError, RuntimeError):
+        pass
+    if mats is not None:
+        me.polygons.foreach_set('material_index', np.asarray(mats, np.int32))
+    me.update(calc_edges=True)
+    me.validate(clean_customdata=False)
+    for an, vals in (attrs or {}).items():
+        a = me.attributes.new(an, 'FLOAT', 'POINT')
+        a.data.foreach_set('value', np.asarray(vals, np.float32).ravel())
+    me.polygons.foreach_set('use_smooth', [smooth] * len(me.polygons))
+    return me
+
+
 def smooth_by_angle(me, angle_deg=35.0):
     """Sombreamento suave com quinas vivas acima de ``angle_deg`` (Blender 4.0 e 4.1+/5.x)."""
     me.polygons.foreach_set('use_smooth', [True] * len(me.polygons))
