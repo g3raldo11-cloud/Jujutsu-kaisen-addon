@@ -43,7 +43,7 @@ godot --headless --path . -- --autotest
 ## Modelos esculpidos no Blender
 
 Os heróis usam os modelos de `assets/models/*.glb`, esculpidos por script no Blender (veja
-`blender/README.md`): Curupira (~707 mil faces no Blender), Saci (~598 mil) e Boitatá (~744 mil); no
+`blender/README.md`): Curupira (~707 mil faces no Blender), Saci (~589 mil) e Boitatá (~744 mil); no
 jogo vão versões dizimadas (~230 mil faces cada), com esqueleto. As juntas procedurais continuam
 animando (passada, soco, cabelo, gorro) e giram os ossos do modelo; o corpo do Boitatá segue a
 simulação. Apagando um `.glb`, o herói volta ao modelo procedural antigo.
