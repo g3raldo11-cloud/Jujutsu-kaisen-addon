@@ -11,7 +11,7 @@ Contagem das malhas dos personagens (efeitos e cenário não entram na conta):
 | Herói | Faces no Blender | Triângulos | `.glb` de jogo (`assets/models`) |
 |---|---|---|---|
 | Curupira | ~707 mil | ~1,42 milhão | ~234 mil faces · 10 MB |
-| Saci | ~589 mil | ~1,18 milhão | ~233 mil faces · 8 MB |
+| Saci | ~598 mil | ~1,2 milhão | ~233 mil faces · 8 MB |
 | Boitatá (enrolado, render) | ~744 mil | ~1,49 milhão | ~225 mil faces · 8 MB (corpo reto, com 28 ossos) |
 
 Os renders e o arquivo do Blender usam a resolução cheia. O `.glb` que vai para o jogo é
