@@ -1,0 +1,40 @@
+{
+  "tiaraju": {"w": 48, "h": 48, "anims": {
+    "idle":  {"strip": "mcp-Pixelwright-blob-1795054354955-bqe11n.png", "n": 4, "ms": [240, 200, 240, 200], "loop": true},
+    "run":   {"strip": "mcp-Pixelwright-blob-1795054386426-yn2way.png", "n": 4, "ms": [90, 90, 90, 90], "loop": true},
+    "dash":  {"strip": "mcp-Pixelwright-blob-1795054392420-cb1kku.png", "n": 2, "ms": [50, 220], "loop": false},
+    "hurt":  {"strip": "mcp-Pixelwright-blob-1795054398894-sxw3mx.png", "n": 2, "ms": [90, 140], "loop": false},
+    "cast":  {"strip": "mcp-Pixelwright-blob-1795054406586-n3atki.png", "n": 3, "ms": [70, 160, 220], "loop": false},
+    "shoot": {"strip": "mcp-Pixelwright-blob-1795054411868-7cmhxd.png", "n": 2, "ms": [60, 100], "loop": false}
+  }},
+  "capitao": {"w": 64, "h": 64, "anims": {
+    "idle":   {"strip": "mcp-Pixelwright-blob-1795055067238-ed2w2w.png", "n": 4, "ms": [260, 220, 260, 220], "loop": true},
+    "walk":   {"strip": "mcp-Pixelwright-blob-1795055069698-a1fcbg.png", "n": 4, "ms": [140, 140, 140, 140], "loop": true},
+    "cast":   {"strip": "mcp-Pixelwright-blob-1795055075978-r0rqys.png", "n": 3, "ms": [120, 180, 200], "loop": false},
+    "raise":  {"strip": "mcp-Pixelwright-blob-1795055082260-pc2us4.png", "n": 2, "ms": [120, 320], "loop": false},
+    "charge": {"strip": "mcp-Pixelwright-blob-1795055089148-i3o9uj.png", "n": 2, "ms": [220, 220], "loop": false},
+    "hurt":   {"strip": "mcp-Pixelwright-blob-1795055093502-ataxg8.png", "n": 2, "ms": [90, 130], "loop": false}
+  }},
+  "fireball":     {"w": 16, "h": 12, "anims": {"fly":  {"strip": "mcp-Pixelwright-blob-1795053200064-j8nk1e.png", "n": 4, "ms": [70, 70, 70, 70], "loop": true}}},
+  "hit_spark":    {"w": 16, "h": 16, "anims": {"pop":  {"strip": "mcp-Pixelwright-blob-1795071458383-j270pb.png", "n": 4, "ms": [40, 50, 60, 70], "loop": false}}},
+  "ground_flame": {"w": 12, "h": 16, "anims": {"burn": {"strip": "mcp-Pixelwright-blob-1795071458445-qpf6or.png", "n": 4, "ms": [90, 90, 90, 90], "loop": true}}},
+  "root_spike":   {"w": 16, "h": 24, "anims": {"grow": {"strip": "mcp-Pixelwright-blob-1795071464037-0hxwqw.png", "n": 3, "ms": [60, 60, 100], "loop": false}}},
+  "bow":          {"w": 10, "h": 20, "anims": {"bow":  {"strip": "mcp-Pixelwright-blob-1795071464049-agx32s.png", "n": 2, "ms": [100, 100], "loop": false}}},
+  "explosion":    {"w": 32, "h": 32, "anims": {"boom": {"strip": "mcp-Pixelwright-blob-1795071464056-gf4n0e.png", "n": 6, "ms": [50, 50, 80, 90, 120, 140], "loop": false}}},
+  "dust_puff":    {"w": 12, "h": 12, "anims": {"puff": {"strip": "mcp-Pixelwright-blob-1795071469148-lbn1qx.png", "n": 4, "ms": [70, 80, 100, 120], "loop": false}}},
+  "leaf":         {"w": 6,  "h": 6,  "anims": {"spin": {"strip": "mcp-Pixelwright-blob-1795071469134-ngf2px.png", "n": 4, "ms": [100, 100, 100, 100], "loop": true}}},
+  "singles": {
+    "thorn_arrow":   "mcp-Pixelwright-blob-1795071458395-zdkven.png",
+    "ruin_wall_a":   "mcp-Pixelwright-blob-1795071469127-i2oxvc.png",
+    "ruin_wall_b":   "mcp-Pixelwright-blob-1795071474174-6zw9vl.png",
+    "canopy":        "mcp-Pixelwright-blob-1795071474235-wggxp1.png",
+    "ferns_fg":      "mcp-Pixelwright-blob-1795071474251-l3ntzv.png",
+    "brazier":       "mcp-Pixelwright-blob-1795071479261-yekhw3.png",
+    "mission_cross": "mcp-Pixelwright-blob-1795071479285-ryj5ra.png",
+    "column":        "mcp-Pixelwright-blob-1795071479279-5ke393.png",
+    "power_icons":   "mcp-Pixelwright-blob-1795071484307-prlo8y.png",
+    "cursor":        "mcp-Pixelwright-blob-1795071484320-ysoug9.png",
+    "logo":          "mcp-Pixelwright-blob-1795071484339-4j26m9.png",
+    "arena_floor":   "mcp-Pixelwright-blob-1795055568943-gcnhj6.png"
+  }
+}
