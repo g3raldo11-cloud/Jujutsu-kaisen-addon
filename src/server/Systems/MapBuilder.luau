@@ -139,7 +139,7 @@ end
 local function buildGround(arena: Instance, rng: Random)
 	block(arena, "Chao", Vector3.new(620, 2, 620), CFrame.new(0, -1, 0), COLORS.ground, Enum.Material.Grass)
 
-	for i = 1, 26 do
+	for _ = 1, 26 do
 		local angle = rng:NextNumber(0, math.pi * 2)
 		local radius = rng:NextNumber(50, 190)
 		local position = Vector3.new(math.cos(angle) * radius, 0.03, math.sin(angle) * radius)

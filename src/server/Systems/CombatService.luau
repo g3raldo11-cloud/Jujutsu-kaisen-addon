@@ -486,7 +486,7 @@ end
 function CombatService.start()
 	Net.event("UseSkill").OnServerEvent:Connect(onUseSkill)
 
-	EnemyService.Killed:Connect(function(enemy: Enemy, killer: Player?)
+	EnemyService.Killed:Connect(function(_enemy: Enemy, killer: Player?)
 		if killer and killer.Parent then
 			local run = Run.get(killer)
 			if run then

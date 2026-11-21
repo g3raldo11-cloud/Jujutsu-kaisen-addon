@@ -157,7 +157,7 @@ local function onPlayerAdded(player: Player)
 	local enabled = true
 
 	if store then
-		for attempt = 1, 5 do
+		for _ = 1, 5 do
 			local status, loaded = claim(player)
 			if status == "ok" then
 				profile = loaded
