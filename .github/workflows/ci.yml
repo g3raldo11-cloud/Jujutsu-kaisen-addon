@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: CompeyDev/setup-rokit@v0.1.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lint (Selene)
+        run: selene src
+
+      - name: Build place (Rojo)
+        run: rojo build default.project.json -o NoiteMaldita.rbxl
+
+      - name: Check dist/ is up to date
+        run: |
+          python3 tools/build_place.py
+          git diff --exit-code dist/ || (echo "Rode: python3 tools/build_place.py" && exit 1)
+
+      - name: Upload place file
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoiteMaldita
+          path: NoiteMaldita.rbxl

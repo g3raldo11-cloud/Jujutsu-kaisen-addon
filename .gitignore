@@ -33,3 +33,19 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# ---- Roblox ----
+*.rbxl
+*.rbxl.lock
+*.rbxlx.lock
+# The ready-to-open place file in dist/ is committed on purpose.
+*.rbxlx
+!dist/*.rbxlx
+Packages/
+ServerPackages/
+DevPackages/
+wally.lock
+sourcemap.json
+__pycache__/
+.DS_Store
+Thumbs.db
