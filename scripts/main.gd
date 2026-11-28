@@ -1,111 +1,255 @@
 extends Node2D
-## Monta a cena: chão, jogador, NPCs, cliente do Claude e caixa de diálogo.
-## Para criar outro NPC, copie um bloco em _spawn_npcs() e mude os textos.
+## Monta a Vila dos Bichinhos: chão, casinhas, árvores, laguinho, bichinhos,
+## o cachorrinho do jogador, a câmera, o HUD e as janelas de conversa e configuração.
 
-const WORLD_INFO := """O jogo se passa na Escola de Feitiçaria Hoshimori, escondida nas montanhas.
-Ali, jovens feiticeiros aprendem a controlar a energia amaldiçoada, uma força que nasce das emoções negativas das pessoas,
-para exorcizar maldições: criaturas invisíveis para pessoas comuns. O jogador é um aluno novo que acabou de chegar à escola.
-Hoje é a primeira noite dele no pátio da escola."""
+const WORLD_SIZE := Vector2(768, 480)
+const CAMERA_ZOOM := 2.0
+
+## Casinhas: posição dos pés (meio da base) e o quadro do telhado (0 rosa, 1 azul, 2 verde).
+const HOUSES := [
+	{"pos": Vector2(168, 176), "frame": 0},
+	{"pos": Vector2(600, 148), "frame": 1},
+	{"pos": Vector2(600, 340), "frame": 2},
+]
+const TREES := [
+	Vector2(40, 70), Vector2(100, 50), Vector2(60, 140), Vector2(270, 60), Vector2(450, 60),
+	Vector2(500, 120), Vector2(520, 40), Vector2(700, 60), Vector2(745, 150), Vector2(720, 250),
+	Vector2(690, 300), Vector2(740, 330), Vector2(700, 420), Vector2(650, 465), Vector2(500, 455),
+	Vector2(430, 430), Vector2(320, 440), Vector2(60, 300), Vector2(40, 420), Vector2(95, 465),
+	Vector2(250, 300),
+]
+const BUSHES := [
+	Vector2(232, 150), Vector2(115, 175), Vector2(640, 130), Vector2(520, 130), Vector2(645, 322),
+	Vector2(520, 312), Vector2(300, 160), Vector2(520, 255), Vector2(230, 420), Vector2(130, 225),
+]
+const POND := Vector2(180, 400)
+const NPC_SPOTS := {
+	"pipoca": Vector2(215, 222),
+	"biscoito": Vector2(560, 184),
+	"bolinho": Vector2(556, 376),
+}
+const PLAYER_START := Vector2(384, 262)
 
 var client: ClaudeClient
+var world: Node2D
 var player: Player
-var ui: DialogueUI
 var npcs: Array[ChatNPC] = []
 var current_npc: ChatNPC = null
-var status_label: Label
+var dialogue: DialogueUI
+var settings: SettingsUI
+
+var _status: Label
+var _prompt: Label
+var _name_tags := {}
+var _busy := false
+## Emoção da última fala do bichinho: aparece quando o texto termina de ser "digitado".
+var _pending_emotion := ""
 
 
 func _ready() -> void:
-	y_sort_enabled = true  # quem está mais abaixo aparece na frente
 	client = ClaudeClient.new()
 	add_child(client)
 
+	_build_ground()
+	world = Node2D.new()
+	world.y_sort_enabled = true
+	add_child(world)
+	_build_props()
+	_build_bounds()
+
 	player = Player.new()
-	player.position = Vector2(576, 470)
-	add_child(player)
+	player.position = PLAYER_START
+	world.add_child(player)
+	var cam := Camera2D.new()
+	cam.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
+	cam.limit_left = 0
+	cam.limit_top = 0
+	cam.limit_right = int(WORLD_SIZE.x)
+	cam.limit_bottom = int(WORLD_SIZE.y)
+	cam.position_smoothing_enabled = true
+	cam.position_smoothing_speed = 7.0
+	cam.offset = Vector2(0, -24)
+	player.add_child(cam)
 
-	_spawn_npcs()
+	for id in NPC_SPOTS.keys():
+		var npc := ChatNPC.new()
+		npc.setup(id)
+		npc.position = NPC_SPOTS[id]
+		world.add_child(npc)
+		npc.animation_changed.connect(_on_npc_animation.bind(npc))
+		npcs.append(npc)
 
-	ui = DialogueUI.new()
-	ui.message_submitted.connect(_on_player_message)
-	ui.closed.connect(_on_dialogue_closed)
-	add_child(ui)
+	_build_hud()
 
-	var hud := CanvasLayer.new()
-	add_child(hud)
-	status_label = Label.new()
-	status_label.position = Vector2(16, 12)
-	status_label.add_theme_font_size_override("font_size", 15)
-	hud.add_child(status_label)
+	dialogue = DialogueUI.new()
+	dialogue.message_submitted.connect(_on_player_message)
+	dialogue.closed.connect(_on_dialogue_closed)
+	dialogue.typing_finished.connect(_on_typing_finished)
+	add_child(dialogue)
+
+	settings = SettingsUI.new()
+	settings.client = client
+	settings.closed.connect(_on_settings_closed)
+	add_child(settings)
+
+	GameState.ai_config_changed.connect(_update_status)
 	_update_status()
 
 
-func _spawn_npcs() -> void:
-	var sensei := ChatNPC.new()
-	sensei.npc_name = "Sensei Amagi"
-	sensei.position = Vector2(360, 260)
-	sensei.body_color = Color(0.45, 0.3, 0.75)
-	sensei.greeting = "*levanta os olhos do livro* Então você é o aluno novo. Fale, mas seja breve."
-	sensei.personality = """Instrutor veterano da escola, com uns 40 anos. Calmo, irônico e exigente, mas se importa muito com os alunos.
-Ensina como controlar a energia amaldiçoada e como reconhecer o grau das maldições (do grau 4, o mais fraco, ao grau especial).
-Guarda um segredo: existe um selo antigo debaixo do templo da escola. Só fala disso se o jogador insistir muito, e mesmo assim por meias palavras.
-Chama o jogador de "novato"."""
-	sensei.offline_lines = [
-		[["oi", "olá", "ola", "bom dia", "boa noite"], "Boa noite, novato. Não durma no treino amanhã."],
-		[["energia", "poder", "técnica", "tecnica"], "Energia amaldiçoada vem das emoções negativas. Quem não a controla é controlado por ela."],
-		[["maldição", "maldicao", "maldições", "grau"], "Maldições vão do grau 4 ao grau especial. Se encontrar uma de grau especial, corra."],
-		[["selo", "templo", "segredo"], "*fecha o livro* Isso não é assunto para um novato."],
-		[["tchau", "até", "ate"], "Vá descansar. Amanhã o treino começa cedo."],
-	]
-	sensei.offline_default = [
-		"Hm. Pergunte algo útil, novato.",
-		"Concentre-se. O que você quer saber sobre energia amaldiçoada?",
-		"*suspira* Continue.",
-	]
-	sensei.refusal_line = "*balança a cabeça* Não vou responder isso. Pergunte outra coisa."
-	_add_npc(sensei)
+# ---------------------------------------------------------------- mundo
 
-	var hana := ChatNPC.new()
-	hana.npc_name = "Hana"
-	hana.position = Vector2(790, 250)
-	hana.body_color = Color(0.95, 0.55, 0.25)
-	hana.greeting = "Ei! Você é o novato? Eu sou a Hana, segundo ano! Quer ver meus talismãs?"
-	hana.personality = """Aluna do segundo ano, 16 anos. Animada, fala rápido e faz muitas perguntas.
-Especialista em talismãs de papel que prendem maldições fracas. Morre de medo de maldições de grau especial, mas tenta esconder.
-Admira o Sensei Amagi, mas acha ele rabugento demais. Quer muito fazer amizade com o jogador e convidá-lo para patrulhar a cidade."""
-	hana.offline_lines = [
-		[["oi", "olá", "ola", "bom dia", "boa noite"], "Oii! Finalmente alguém novo por aqui!"],
-		[["talismã", "talisma", "talismãs", "papel"], "Meus talismãs prendem maldições fracas! Escrevo cada um à mão, sabia?"],
-		[["medo", "grau especial", "forte"], "M-medo? Eu? Claro que não! *olha para os lados*"],
-		[["sensei", "amagi", "professor"], "O Sensei Amagi é incrível, mas super rabugento. Não conta que eu disse isso!"],
-		[["patrulha", "cidade", "missão", "missao"], "Vamos patrulhar a cidade amanhã? Por favor, diz que sim!"],
-		[["tchau", "até", "ate"], "Até amanhã! Não esquece da patrulha!"],
-	]
-	hana.offline_default = [
-		"Hm? Não entendi, mas parece legal!",
-		"E aí, de onde você veio? Conta tudo!",
-		"Você já viu uma maldição de verdade?",
-	]
-	hana.refusal_line = "Hã... melhor a gente falar de outra coisa! Quer ver meus talismãs?"
-	_add_npc(hana)
+func _build_ground() -> void:
+	var ground := Sprite2D.new()
+	ground.texture = preload("res://sprites/vila_chao.png")
+	ground.centered = false
+	ground.z_index = -10
+	add_child(ground)
+	var pond := Sprite2D.new()
+	pond.texture = preload("res://sprites/laguinho.png")
+	pond.position = POND
+	pond.z_index = -9
+	add_child(pond)
+	_add_blocker(POND, Vector2(64, 30))
 
 
-func _add_npc(npc: ChatNPC) -> void:
-	npc.world_info = WORLD_INFO
-	add_child(npc)
-	npcs.append(npc)
+func _build_props() -> void:
+	var house_tex: Texture2D = preload("res://sprites/casinha.png")
+	for h in HOUSES:
+		var s := Sprite2D.new()
+		s.texture = house_tex
+		s.hframes = 3
+		s.frame = h["frame"]
+		s.centered = false
+		s.offset = Vector2(-32, -62)
+		s.position = h["pos"]
+		world.add_child(s)
+		_add_blocker(h["pos"] + Vector2(0, -10), Vector2(46, 18))
+	var tree_tex: Texture2D = preload("res://sprites/arvore.png")
+	for p in TREES:
+		var t := Sprite2D.new()
+		t.texture = tree_tex
+		t.centered = false
+		t.offset = Vector2(-24, -54)
+		t.position = p
+		world.add_child(t)
+		_add_blocker(p + Vector2(0, -4), Vector2(14, 8))
+	var bush_tex: Texture2D = preload("res://sprites/arbusto.png")
+	for p in BUSHES:
+		var b := Sprite2D.new()
+		b.texture = bush_tex
+		b.centered = false
+		b.offset = Vector2(-14, -18)
+		b.position = p
+		world.add_child(b)
+		_add_blocker(p + Vector2(0, -5), Vector2(22, 8))
+
+
+func _build_bounds() -> void:
+	var t := 16.0
+	_add_blocker(Vector2(WORLD_SIZE.x / 2, -t / 2 + 8), Vector2(WORLD_SIZE.x, t))
+	_add_blocker(Vector2(WORLD_SIZE.x / 2, WORLD_SIZE.y + t / 2 - 2), Vector2(WORLD_SIZE.x, t))
+	_add_blocker(Vector2(-t / 2 + 6, WORLD_SIZE.y / 2), Vector2(t, WORLD_SIZE.y))
+	_add_blocker(Vector2(WORLD_SIZE.x + t / 2 - 6, WORLD_SIZE.y / 2), Vector2(t, WORLD_SIZE.y))
+
+
+func _add_blocker(center: Vector2, size: Vector2) -> void:
+	var body := StaticBody2D.new()
+	body.position = center
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = size
+	shape.shape = rect
+	body.add_child(shape)
+	add_child(body)
+
+
+# ---------------------------------------------------------------- HUD
+
+func _build_hud() -> void:
+	var hud := CanvasLayer.new()
+	hud.layer = 3
+	add_child(hud)
+
+	_status = Label.new()
+	_status.position = Vector2(14, 10)
+	_status.add_theme_font_size_override("font_size", 16)
+	_status.add_theme_color_override("font_color", Color.WHITE)
+	_status.add_theme_color_override("font_outline_color", Color("3b3447"))
+	_status.add_theme_constant_override("outline_size", 6)
+	hud.add_child(_status)
+
+	var help := Label.new()
+	help.text = "WASD/setas: andar   E: conversar   F1: configurar IA"
+	help.anchor_left = 1.0
+	help.anchor_right = 1.0
+	help.offset_left = -470
+	help.offset_right = -14
+	help.offset_top = 10
+	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	help.add_theme_font_size_override("font_size", 16)
+	help.add_theme_color_override("font_color", Color.WHITE)
+	help.add_theme_color_override("font_outline_color", Color("3b3447"))
+	help.add_theme_constant_override("outline_size", 6)
+	hud.add_child(help)
+
+	_prompt = Label.new()
+	_prompt.anchor_left = 0.5
+	_prompt.anchor_right = 0.5
+	_prompt.anchor_top = 1.0
+	_prompt.anchor_bottom = 1.0
+	_prompt.offset_left = -300
+	_prompt.offset_right = 300
+	_prompt.offset_top = -70
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_prompt.add_theme_font_size_override("font_size", 22)
+	_prompt.add_theme_color_override("font_color", Color("fff6ea"))
+	_prompt.add_theme_color_override("font_outline_color", Color("8a5a3a"))
+	_prompt.add_theme_constant_override("outline_size", 8)
+	_prompt.visible = false
+	hud.add_child(_prompt)
+
+	for npc in npcs:
+		var tag := Label.new()
+		tag.text = npc.display_name
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tag.size = Vector2(160, 24)
+		tag.add_theme_font_size_override("font_size", 15)
+		tag.add_theme_color_override("font_color", Color.WHITE)
+		tag.add_theme_color_override("font_outline_color", Color("3b3447"))
+		tag.add_theme_constant_override("outline_size", 6)
+		hud.add_child(tag)
+		_name_tags[npc] = tag
+
+
+func _update_status() -> void:
+	if GameState.has_ai():
+		_status.text = "IA: ligada (%s)" % GameState.model_display_name()
+	else:
+		_status.text = "IA: modo offline. Aperte F1 para ligar o Claude"
 
 
 func _process(_delta: float) -> void:
-	if current_npc != null:
-		return
-	var nearest := _nearest_npc()
+	var xf := get_viewport().get_canvas_transform()
 	for npc in npcs:
-		npc.highlighted = npc == nearest
+		var tag: Label = _name_tags[npc]
+		var screen := xf * (npc.global_position + Vector2(0, -70))
+		tag.position = screen - Vector2(tag.size.x / 2, tag.size.y)
+		tag.visible = current_npc == null
+
+	if current_npc != null or settings.visible:
+		_prompt.visible = false
+		return
+	var near := _nearest_npc()
+	_prompt.visible = near != null
+	if near != null:
+		_prompt.text = "E: conversar com %s" % near.display_name
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if current_npc == null and event.is_action_pressed("interact"):
+	if event.is_action_pressed("settings") and current_npc == null:
+		get_viewport().set_input_as_handled()
+		_open_settings()
+	elif event.is_action_pressed("interact") and current_npc == null and not settings.visible:
 		var npc := _nearest_npc()
 		if npc != null:
 			get_viewport().set_input_as_handled()
@@ -116,62 +260,85 @@ func _nearest_npc() -> ChatNPC:
 	var best: ChatNPC = null
 	var best_dist := INF
 	for npc in npcs:
-		var d := player.position.distance_to(npc.position)
+		var d := player.global_position.distance_to(npc.global_position)
 		if d <= npc.talk_radius and d < best_dist:
 			best = npc
 			best_dist = d
 	return best
 
 
+func _open_settings() -> void:
+	player.can_move = false
+	settings.open()
+
+
+func _on_settings_closed() -> void:
+	player.can_move = current_npc == null
+	_update_status()
+
+
+# ---------------------------------------------------------------- conversa
+
 func _start_dialogue(npc: ChatNPC) -> void:
 	current_npc = npc
-	npc.highlighted = false
+	npc.in_conversation = true
 	player.can_move = false
-	ui.open(npc.npc_name, _mode_text())
-	ui.add_line(npc.npc_name, npc.greeting, npc.body_color.lightened(0.3), true)
+	player.face_towards(npc.global_position)
+	var color := Color(str(npc.profile.get("cor", "f6b0c4")))
+	dialogue.open(npc.display_name, color, npc.sprite.sprite_frames, GameState.get_friendship(npc.npc_id), _mode_text())
+	var g := npc.greeting()
+	npc.play_anim("talk")
+	_pending_emotion = g["emocao"]
+	dialogue.add_line(npc.display_name, g["fala"], color.darkened(0.25), true)
 
 
 func _on_player_message(text: String) -> void:
 	var npc := current_npc
-	if npc == null:
+	if npc == null or _busy:
 		return
-	ui.add_line("Você", text, Color(0.6, 0.8, 1))
-	ui.set_waiting(true)
+	_busy = true
+	dialogue.add_line(GameState.player_name if GameState.player_name != "" else "Você", text, Color("4f74b8"))
+	dialogue.set_waiting(true, npc.display_name)
+	npc.show_emote("pensando", 0.0)
+	npc.play_anim("idle")
+
 	var r: Dictionary = await npc.reply_to(client, text)
+	_busy = false
 	if npc != current_npc:
-		return  # o jogador fechou a conversa enquanto esperava
-	ui.add_line(npc.npc_name, r["text"], npc.body_color.lightened(0.3), true)
+		return  # o jogador saiu da conversa enquanto esperava
+	npc.hide_emote()
+	dialogue.set_waiting(false)
+	var color := Color(str(npc.profile.get("cor", "f6b0c4"))).darkened(0.25)
+	_pending_emotion = r["emocao"]
+	npc.play_anim("talk")
+	dialogue.add_line(npc.display_name, r["fala"], color, true)
+	dialogue.set_friendship(GameState.get_friendship(npc.npc_id))
 	if r["error"] != "":
-		ui.add_line("Sistema", "IA indisponível (%s). Usando fala offline." % r["error"], Color(1, 0.5, 0.5))
+		dialogue.add_note("(IA indisponível: %s. Respondi com o cérebro offline.)" % r["error"])
 		push_warning("Claude: " + r["error"])
-	ui.set_waiting(false)
+	dialogue.set_hint(_mode_text())
+
+
+func _on_typing_finished() -> void:
+	if current_npc != null:
+		current_npc.show_emotion(_pending_emotion)
+
+
+func _on_npc_animation(anim: String, npc: ChatNPC) -> void:
+	if npc == current_npc:
+		dialogue.set_portrait_anim(anim)
 
 
 func _on_dialogue_closed() -> void:
+	if current_npc != null:
+		current_npc.in_conversation = false
+		current_npc.hide_emote()
+		current_npc.play_anim("idle")
 	current_npc = null
 	player.can_move = true
 
 
 func _mode_text() -> String:
-	if client.is_online():
-		return "IA: Claude (%s)" % client.model
-	return "IA offline: coloque sua chave em claude_config.cfg"
-
-
-func _update_status() -> void:
-	status_label.text = "WASD/setas: andar   E: conversar   |   " + _mode_text()
-
-
-func _draw() -> void:
-	# Pátio da escola: chão de pedra e um caminho.
-	draw_rect(Rect2(0, 0, 1152, 648), Color(0.13, 0.14, 0.18))
-	for x in range(0, 1152, 48):
-		for y in range(48, 648, 48):
-			var shade := 0.17 + 0.02 * float((x + y) / 48 % 2)
-			draw_rect(Rect2(x + 1, y + 1, 46, 46), Color(shade, shade + 0.01, shade + 0.04))
-	draw_rect(Rect2(0, 0, 1152, 48), Color(0.08, 0.06, 0.12))
-	# Portão do templo ao fundo.
-	draw_rect(Rect2(520, 60, 112, 14), Color(0.7, 0.15, 0.15))
-	draw_rect(Rect2(500, 50, 152, 10), Color(0.55, 0.1, 0.1))
-	draw_rect(Rect2(534, 74, 12, 90), Color(0.7, 0.15, 0.15))
-	draw_rect(Rect2(606, 74, 12, 90), Color(0.7, 0.15, 0.15))
+	if GameState.has_ai():
+		return "IA: Claude ligada"
+	return "IA offline (F1 para ligar o Claude)"

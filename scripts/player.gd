@@ -1,23 +1,67 @@
 class_name Player
-extends Node2D
-## Jogador simples: anda com WASD ou setas.
+extends CharacterBody2D
+## O cachorrinho do jogador: anda com WASD ou setas, nas 4 direções.
 
-@export var speed := 220.0
+@export var speed := 95.0
 var can_move := true
-var bounds := Rect2(40, 60, 1072, 548)
+var facing := "s"
+var sprite: AnimatedSprite2D
+var _frames := {}
 
 
-func _process(delta: float) -> void:
-	if not can_move:
-		return
-	var dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
-	position += dir * speed * delta
-	position = position.clamp(bounds.position, bounds.end)
+func _ready() -> void:
+	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
+	for d in ["s", "n", "e", "w"]:
+		_frames[d] = load("res://sprites/filhote_jogador-%s.tres" % d)
+	sprite = AnimatedSprite2D.new()
+	sprite.centered = false
+	sprite.offset = Vector2(-32, -62)
+	sprite.sprite_frames = _frames["s"]
+	add_child(sprite)
+	sprite.play("idle")
+
+	# colisão só nos pés: dá para passar "atrás" das coisas
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(18, 8)
+	shape.shape = rect
+	shape.position = Vector2(0, -4)
+	add_child(shape)
 
 
-func _draw() -> void:
-	draw_circle(Vector2(0, 22), 15, Color(0, 0, 0, 0.25))
-	draw_rect(Rect2(-13, -4, 26, 26), Color(0.15, 0.17, 0.25))
-	draw_circle(Vector2(0, -12), 13, Color(0.98, 0.85, 0.72))
-	draw_rect(Rect2(-13, -26, 26, 8), Color(0.1, 0.1, 0.1))
-	draw_string(ThemeDB.fallback_font, Vector2(-60, -34), "Você", HORIZONTAL_ALIGNMENT_CENTER, 120, 13, Color(0.8, 0.9, 1))
+func _physics_process(_delta: float) -> void:
+	var dir := Vector2.ZERO
+	if can_move:
+		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	velocity = dir * speed
+	move_and_slide()
+	_update_animation(dir)
+
+
+func _update_animation(dir: Vector2) -> void:
+	var moving := dir.length() > 0.1
+	if moving:
+		if absf(dir.x) > absf(dir.y):
+			facing = "e" if dir.x > 0.0 else "w"
+		else:
+			facing = "s" if dir.y > 0.0 else "n"
+	_play("walk" if moving else "idle")
+
+
+## Vira para olhar um ponto (por exemplo, o bichinho com quem vai conversar).
+func face_towards(target: Vector2) -> void:
+	var d := target - global_position
+	if absf(d.x) > absf(d.y):
+		facing = "e" if d.x > 0.0 else "w"
+	else:
+		facing = "s" if d.y > 0.0 else "n"
+	_play("idle")
+
+
+func _play(anim: String) -> void:
+	var frames: SpriteFrames = _frames[facing]
+	if sprite.sprite_frames != frames:
+		sprite.sprite_frames = frames
+		sprite.play(anim)
+	elif sprite.animation != anim:
+		sprite.play(anim)

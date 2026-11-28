@@ -1,74 +1,61 @@
 class_name ClaudeClient
 extends Node
 ## Conversa com a API do Claude (Anthropic) por HTTP.
-##
-## A chave é lida, nesta ordem, de:
-##   1. variável de ambiente ANTHROPIC_API_KEY
-##   2. claude_config.cfg ao lado do executável (jogo exportado)
-##   3. res://claude_config.cfg (rodando pelo editor)
-## Sem chave, is_online() retorna false e os NPCs usam as falas offline.
+## A chave e o modelo vêm do GameState (tela de configuração do jogo,
+## variável ANTHROPIC_API_KEY ou arquivo claude_config.cfg).
 
 const API_URL := "https://api.anthropic.com/v1/messages"
 const API_VERSION := "2026-10-21"
-# Se o modelo recusar um pedido por segurança, a API tenta de novo em outro
-# modelo automaticamente (fallbacks: "default").
+## Se o modelo recusar um pedido, a API tenta de novo em outro modelo sozinha.
 const FALLBACK_BETA := "server-side-fallback-2026-07-01"
-const CONFIG_NAME := "claude_config.cfg"
 const MAX_RETRIES := 2
 
-var api_key := ""
-var model := "claude-opus-5-5"
-
-
-func _ready() -> void:
-	load_config()
-
-
-func load_config() -> void:
-	api_key = OS.get_environment("ANTHROPIC_API_KEY")
-	var paths := [
-		OS.get_executable_path().get_base_dir().path_join(CONFIG_NAME),
-		"res://" + CONFIG_NAME,
-	]
-	for path in paths:
-		var cfg := ConfigFile.new()
-		if cfg.load(path) != OK:
-			continue
-		if api_key == "":
-			api_key = str(cfg.get_value("claude", "api_key", "")).strip_edges()
-		model = str(cfg.get_value("claude", "model", model)).strip_edges()
-		break
-	if api_key.begins_with("cole-"):
-		api_key = ""
+## O formato da resposta de cada bichinho (saída estruturada em JSON).
+const REPLY_SCHEMA := {
+	"type": "object",
+	"properties": {
+		"fala": {"type": "string"},
+		"emocao": {"type": "string", "enum": [
+			"neutro", "feliz", "animado", "apaixonado", "triste", "magoado",
+			"bravo", "surpreso", "confuso", "envergonhado", "sonolento",
+		]},
+		"amizade": {"type": "integer"},
+		"lembrar": {"type": "string"},
+		"fofoca": {"type": "string"},
+	},
+	"required": ["fala", "emocao", "amizade", "lembrar", "fofoca"],
+	"additionalProperties": false,
+}
 
 
 func is_online() -> bool:
-	return api_key != ""
+	return GameState.has_ai()
 
 
-## Envia a conversa e espera a resposta.
-## Retorna {"ok": true, "text": String, "content": Array}
+## Envia a conversa e espera a resposta (use com await).
+## Retorna {"ok": true, "data": {...}, "content": Array}
 ## ou {"ok": false, "error": String, "refusal": bool}.
-func ask(system_prompt: String, messages: Array) -> Dictionary:
+func ask(system_prompt: String, messages: Array, schema: Dictionary = REPLY_SCHEMA) -> Dictionary:
 	if not is_online():
 		return {"ok": false, "error": "sem chave de API", "refusal": false}
 
+	var output_config := {"effort": "low"}
+	if not schema.is_empty():
+		output_config["format"] = {"type": "json_schema", "schema": schema}
 	var body := {
-		"model": model,
+		"model": GameState.model,
 		"max_tokens": 4000,
 		"system": system_prompt,
 		"messages": messages,
-		# Conversa de NPC não precisa de raciocínio profundo: "low" deixa a
-		# resposta mais rápida e barata.
-		"output_config": {"effort": "low"},
+		"output_config": output_config,
 	}
 	var headers := PackedStringArray([
 		"content-type: application/json",
-		"x-api-key: " + api_key,
+		"x-api-key: " + GameState.api_key,
 		"anthropic-version: " + API_VERSION,
 	])
 	# Os modelos Haiku não têm fallback no servidor.
-	if not model.begins_with("claude-haiku"):
+	if not GameState.model.begins_with("claude-haiku"):
 		body["fallbacks"] = "default"
 		headers.append("anthropic-beta: " + FALLBACK_BETA)
 
@@ -89,7 +76,7 @@ func ask(system_prompt: String, messages: Array) -> Dictionary:
 		var raw: PackedByteArray = res[3]
 
 		if result == HTTPRequest.RESULT_SUCCESS and code == 200:
-			return _parse_response(raw.get_string_from_utf8())
+			return _parse_response(raw.get_string_from_utf8(), not schema.is_empty())
 
 		# 429 (limite), 5xx/529 (sobrecarga) e falhas de rede valem nova tentativa.
 		var retryable := result != HTTPRequest.RESULT_SUCCESS or code == 429 or code >= 500
@@ -101,7 +88,17 @@ func ask(system_prompt: String, messages: Array) -> Dictionary:
 	return {"ok": false, "error": "sem resposta", "refusal": false}
 
 
-func _parse_response(text: String) -> Dictionary:
+## Um pedido bem pequeno, para a tela de configuração dizer se a chave funciona.
+func test_connection() -> Dictionary:
+	var r: Dictionary = await ask(
+		"Você é um teste de conexão de um jogo. Responda só com a palavra: ok",
+		[{"role": "user", "content": "teste"}],
+		{}
+	)
+	return r
+
+
+func _parse_response(text: String, expect_json: bool) -> Dictionary:
 	var data = JSON.parse_string(text)
 	if typeof(data) != TYPE_DICTIONARY:
 		return {"ok": false, "error": "resposta inválida", "refusal": false}
@@ -115,22 +112,33 @@ func _parse_response(text: String) -> Dictionary:
 	for block in content:
 		if typeof(block) == TYPE_DICTIONARY and block.get("type", "") == "text":
 			parts.append(str(block.get("text", "")))
-	return {"ok": true, "text": "\n".join(parts).strip_edges(), "content": content}
+	var full_text := "".join(parts).strip_edges()
+	if not expect_json:
+		return {"ok": true, "text": full_text, "content": content, "data": {}}
+
+	var reply = JSON.parse_string(full_text)
+	if typeof(reply) != TYPE_DICTIONARY or str(reply.get("fala", "")).strip_edges() == "":
+		return {"ok": false, "error": "a IA respondeu num formato estranho", "refusal": false}
+	return {"ok": true, "data": reply, "content": content, "text": full_text}
 
 
 func _describe_error(result: int, code: int, raw: PackedByteArray) -> String:
 	if result != HTTPRequest.RESULT_SUCCESS:
-		return "sem conexão (resultado %d)" % result
+		return "sem conexão com a internet (resultado %d)" % result
 	var data = JSON.parse_string(raw.get_string_from_utf8())
 	var msg := ""
 	if typeof(data) == TYPE_DICTIONARY and typeof(data.get("error")) == TYPE_DICTIONARY:
 		msg = str(data["error"].get("message", ""))
 	match code:
+		400:
+			return "pedido recusado pela API: " + msg
 		401:
 			return "chave de API inválida"
 		403:
 			return "sem permissão: " + msg
+		404:
+			return "modelo não encontrado: " + msg
 		429:
-			return "limite de uso atingido, tente daqui a pouco"
+			return "limite de uso atingido, espere um pouquinho"
 		_:
 			return "erro HTTP %d %s" % [code, msg]
